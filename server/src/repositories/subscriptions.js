@@ -60,12 +60,12 @@ export async function upsertSubscription(userId, item) {
     `INSERT INTO subscriptions (
        user_id, merchant_name, amount, currency, cadence, category,
        next_billing_date, last_charged_at, confidence, status, payment_state, evidence,
-       source_email, fingerprint
+       source_email, fingerprint, created_at, updated_at
      )
      VALUES (
        :userId, :merchantName, :amount, :currency, :cadence, :category,
        :nextBillingDate, :lastChargedAt, :confidence, :status, :paymentState, :evidence,
-       :sourceEmail, :fingerprint
+       :sourceEmail, :fingerprint, NOW(), NOW()
      )
      ON DUPLICATE KEY UPDATE
        merchant_name = VALUES(merchant_name),
@@ -79,7 +79,8 @@ export async function upsertSubscription(userId, item) {
        status = VALUES(status),
        payment_state = VALUES(payment_state),
        evidence = VALUES(evidence),
-       source_email = VALUES(source_email)`,
+       source_email = VALUES(source_email),
+       updated_at = NOW()`,
     {
       userId,
       merchantName: item.merchantName,

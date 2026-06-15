@@ -37,14 +37,14 @@ export async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      email VARCHAR(255) NOT NULL,
+      email VARCHAR(191) NOT NULL,
       name VARCHAR(255) NULL,
       google_id VARCHAR(255) NULL,
       gmail_tokens LONGTEXT NULL,
       last_gmail_scan_at DATETIME NULL,
       gmail_history_id VARCHAR(64) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      created_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
+      updated_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
       PRIMARY KEY (id),
       UNIQUE KEY users_email_unique (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -70,8 +70,8 @@ export async function initializeDatabase() {
       evidence LONGTEXT NULL,
       source_email LONGTEXT NULL,
       fingerprint CHAR(64) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      created_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
+      updated_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
       PRIMARY KEY (id),
       UNIQUE KEY subscriptions_user_fingerprint_unique (user_id, fingerprint),
       KEY subscriptions_user_date_index (user_id, next_billing_date),

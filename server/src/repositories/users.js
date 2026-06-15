@@ -27,12 +27,13 @@ function mapUser(row) {
 
 export async function upsertGoogleUser({ email, name, googleId, gmailTokens }) {
   await pool.execute(
-    `INSERT INTO users (email, name, google_id, gmail_tokens)
-     VALUES (:email, :name, :googleId, :gmailTokens)
+    `INSERT INTO users (email, name, google_id, gmail_tokens, created_at, updated_at)
+     VALUES (:email, :name, :googleId, :gmailTokens, NOW(), NOW())
      ON DUPLICATE KEY UPDATE
        name = VALUES(name),
        google_id = VALUES(google_id),
-       gmail_tokens = VALUES(gmail_tokens)`,
+       gmail_tokens = VALUES(gmail_tokens),
+       updated_at = NOW()`,
     {
       email,
       name: name || null,
@@ -66,7 +67,7 @@ export async function deleteUserAccountData(id) {
 }
 
 export async function updateUserLastGmailScanAt(id, date = new Date()) {
-  await pool.execute("UPDATE users SET last_gmail_scan_at = :date WHERE id = :id", {
+  await pool.execute("UPDATE users SET last_gmail_scan_at = :date, updated_at = NOW() WHERE id = :id", {
     id,
     date: date.toISOString().slice(0, 19).replace("T", " ")
   });
@@ -76,7 +77,8 @@ export async function updateUserGmailSyncState(id, { lastScanAt = new Date(), hi
   await pool.execute(
     `UPDATE users
      SET last_gmail_scan_at = :lastScanAt,
-         gmail_history_id = COALESCE(:historyId, gmail_history_id)
+         gmail_history_id = COALESCE(:historyId, gmail_history_id),
+         updated_at = NOW()
      WHERE id = :id`,
     {
       id,
