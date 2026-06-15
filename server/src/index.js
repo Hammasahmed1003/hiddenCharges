@@ -4,6 +4,8 @@ import session from "express-session";
 import MySQLStoreFactory from "express-mysql-session";
 import helmet from "helmet";
 import { createServer } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { config } from "./config.js";
 import { initializeDatabase } from "./db.js";
@@ -13,6 +15,8 @@ import { latestUsdRates } from "./services/exchangeRates.js";
 import { processGmailPushNotification, registerLiveScanSocket } from "./services/liveScan.js";
 
 const MySQLStore = MySQLStoreFactory(session);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDistPath = path.resolve(__dirname, "../../client/dist");
 
 async function startServer() {
   await initializeDatabase();
@@ -101,6 +105,14 @@ async function startServer() {
       next(error);
     }
   });
+
+  if (isProduction) {
+    app.use(express.static(clientDistPath));
+    app.get("*", (request, response, next) => {
+      if (request.path.startsWith("/api/")) return next();
+      return response.sendFile(path.join(clientDistPath, "index.html"));
+    });
+  }
 
   server.listen(config.port, () => {
     console.log(`HiddenCharges API listening on http://localhost:${config.port}`);
