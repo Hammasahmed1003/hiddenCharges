@@ -367,6 +367,89 @@ h1 {
   color: #202123;
 }
 
+.live-monitor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  max-width: 1180px;
+  margin: -10px auto 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.live-monitor-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.live-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: #a0a0a0;
+}
+
+.live-monitor.online .live-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.12);
+}
+
+.live-monitor.online .live-dot::after {
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  border-radius: inherit;
+  animation: livePulse 1.5s ease infinite;
+  content: "";
+}
+
+.live-monitor strong,
+.live-monitor p {
+  display: block;
+}
+
+.live-monitor strong {
+  color: #202123;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.live-monitor p {
+  max-width: 780px;
+  margin-top: 3px;
+  color: #666666;
+  font-size: 0.86rem;
+  line-height: 1.48;
+}
+
+.live-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fafafa;
+  color: #444444;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.live-monitor.online .live-state {
+  border-color: rgba(22, 163, 74, 0.28);
+  background: rgba(22, 163, 74, 0.08);
+  color: #137a38;
+}
+
 .scan-progress {
   flex: 1 0 100%;
   display: grid;
@@ -1980,6 +2063,17 @@ h2 {
   }
 }
 
+@keyframes livePulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -2048,7 +2142,8 @@ h2 {
   .workspace-header,
   .dashboard-heading,
   .control-row,
-  .notice-panel {
+  .notice-panel,
+  .live-monitor {
     align-items: stretch;
     flex-direction: column;
   }

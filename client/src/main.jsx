@@ -451,6 +451,7 @@ function App() {
   const [ratesMeta, setRatesMeta] = useState({ stale: true, fetchedAt: null });
   const [selectedCurrency, setSelectedCurrency] = useState("PKR");
   const [activeFeature, setActiveFeature] = useState("overview");
+  const [socketConnected, setSocketConnected] = useState(false);
   const socketRef = useRef(null);
   const path = window.location.pathname;
 
@@ -517,6 +518,7 @@ function App() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      setSocketConnected(true);
       setAuthNotice("Connected. All verified payment notifications will appear here live.");
     });
 
@@ -610,10 +612,12 @@ function App() {
     });
 
     socket.on("disconnect", () => {
+      setSocketConnected(false);
       setSyncing(false);
     });
 
     return () => {
+      setSocketConnected(false);
       socket.close();
       socketRef.current = null;
     };
@@ -802,6 +806,8 @@ function App() {
           </span>
         </section>
 
+        <LiveMonitor connected={socketConnected} syncing={syncing} />
+
         <FeatureSwitcher activeFeature={activeFeature} onChange={setActiveFeature} />
 
         <section className="feature-view" key={activeFeature}>
@@ -892,6 +898,25 @@ function App() {
         </section>
       </section>
     </main>
+  );
+}
+
+function LiveMonitor({ connected, syncing }) {
+  return (
+    <section className={`live-monitor ${connected ? "online" : "offline"}`}>
+      <div className="live-monitor-main">
+        <span className="live-dot" aria-hidden="true" />
+        <div>
+          <strong>{connected ? "Live Gmail monitor is connected" : "Live monitor reconnecting"}</strong>
+          <p>
+            {connected
+              ? "Do not worry. If any new payment notification arrives and gets verified, it will appear here automatically and roll into your monthly report."
+              : "Keep this dashboard open while we reconnect. Verified payment notifications will update here once the live connection is active again."}
+          </p>
+        </div>
+      </div>
+      <span className="live-state">{syncing ? "Scanning" : connected ? "Live" : "Offline"}</span>
+    </section>
   );
 }
 
