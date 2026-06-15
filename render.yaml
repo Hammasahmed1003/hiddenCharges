@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: hiddencharges-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MYSQL_PORT
+        value: 3306
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
