@@ -1131,6 +1131,7 @@ h2 {
   flex-wrap: wrap;
 }
 
+.marketing-links > a,
 .marketing-links > button:not(.secondary-button) {
   min-height: 38px;
   padding: 0 10px;
@@ -1138,8 +1139,12 @@ h2 {
   background: transparent;
   color: #565656;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
+.marketing-links > a:hover,
 .marketing-links > button:not(.secondary-button):hover {
   color: #202123;
 }

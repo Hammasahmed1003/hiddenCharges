@@ -212,6 +212,7 @@ function App() {
   const [ratesMeta, setRatesMeta] = useState({ stale: true, fetchedAt: null });
   const [selectedCurrency, setSelectedCurrency] = useState("PKR");
   const socketRef = useRef(null);
+  const path = window.location.pathname;
 
   async function loadMe() {
     try {
@@ -469,6 +470,10 @@ function App() {
       drainInsights: subscriptionDrainInsights(subscriptions, rates)
     };
   }, [subscriptions, rates, selectedCurrency]);
+
+  if (path === "/privacy" || path === "/terms") {
+    return <LegalPage page={path === "/privacy" ? "privacy" : "terms"} />;
+  }
 
   if (authLoading) {
     return (
@@ -834,12 +839,6 @@ function RenewalCalendar({ subscriptions, compact = false }) {
 }
 
 function ConnectLanding({ connectGmail }) {
-  const [legalPage, setLegalPage] = useState(null);
-
-  if (legalPage) {
-    return <LegalPage page={legalPage} onBack={() => setLegalPage(null)} />;
-  }
-
   return (
     <main className="connect-shell marketing-shell">
       <header className="marketing-nav">
@@ -850,12 +849,12 @@ function ConnectLanding({ connectGmail }) {
           <strong>HiddenCharges</strong>
         </div>
         <div className="marketing-links">
-          <button onClick={() => setLegalPage("privacy")} type="button">
+          <a href="/privacy">
             Privacy
-          </button>
-          <button onClick={() => setLegalPage("terms")} type="button">
+          </a>
+          <a href="/terms">
             Terms
-          </button>
+          </a>
           <button className="secondary-button" onClick={connectGmail}>
             <Mail size={17} />
             Connect Gmail
@@ -945,7 +944,7 @@ function ConnectLanding({ connectGmail }) {
   );
 }
 
-function LegalPage({ page, onBack }) {
+function LegalPage({ page }) {
   const isPrivacy = page === "privacy";
 
   return (
@@ -957,7 +956,7 @@ function LegalPage({ page, onBack }) {
           </div>
           <strong>HiddenCharges</strong>
         </div>
-        <button className="secondary-button" onClick={onBack}>
+        <button className="secondary-button" onClick={() => { window.location.href = "/"; }}>
           Back
         </button>
       </header>
@@ -983,7 +982,7 @@ function LegalPage({ page, onBack }) {
             <p>We may change, pause, or improve Beta features as the product evolves, including detection logic, AI providers, currency conversion, and renewal estimates.</p>
           </div>
         )}
-        <button className="google-button" onClick={onBack}>
+        <button className="google-button" onClick={() => { window.location.href = "/"; }}>
           <FileText size={18} />
           Return to HiddenCharges
         </button>
