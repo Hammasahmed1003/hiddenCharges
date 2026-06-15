@@ -412,9 +412,65 @@ h1 {
   transition: width 220ms ease;
 }
 
+.feature-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f7f7f7;
+}
+
+.feature-switcher button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #555555;
+  font-weight: 500;
+  transition:
+    background 170ms ease,
+    color 170ms ease,
+    box-shadow 170ms ease,
+    transform 170ms ease;
+}
+
+.feature-switcher button:hover {
+  color: #202123;
+  transform: translateY(-1px);
+}
+
+.feature-switcher button.active {
+  background: #ffffff;
+  color: #202123;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.feature-view {
+  animation: featureIn 220ms ease both;
+}
+
+@keyframes featureIn {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .overview-grid,
 .dashboard-band,
-.insight-panel {
+.insight-panel,
+.opportunity-shell,
+.monthly-report,
+.timeline-shell {
   max-width: 1180px;
   margin: 0 auto;
 }
@@ -666,6 +722,390 @@ h2 {
 
 .insight-panel {
   margin-bottom: 42px;
+}
+
+.feature-intro {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.feature-intro h2 {
+  margin-bottom: 7px;
+}
+
+.feature-intro p {
+  max-width: 720px;
+  color: #666666;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.opportunity-hero {
+  background:
+    linear-gradient(135deg, rgba(32, 33, 35, 0.04), transparent 58%),
+    #ffffff;
+}
+
+.impact-meter,
+.report-total {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-width: 260px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.impact-meter span,
+.impact-meter small,
+.report-total span,
+.report-total small {
+  color: #707070;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.impact-meter strong,
+.report-total strong {
+  color: #202123;
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.opportunity-grid {
+  display: grid;
+  grid-template-columns: 1.15fr repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.opportunity-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 220px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.opportunity-card.focus {
+  background: #fafafa;
+}
+
+.opportunity-card h3 {
+  color: #202123;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.opportunity-card > strong {
+  color: #202123;
+  font-size: 1.55rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.opportunity-card p,
+.opportunity-card small,
+.opportunity-row p,
+.opportunity-row small {
+  color: #707070;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.opportunity-type {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fafafa;
+  color: #444444;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.opportunity-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.opportunity-rules span {
+  min-height: 28px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #555555;
+  font-size: 0.76rem;
+}
+
+.opportunity-list {
+  margin-bottom: 42px;
+}
+
+.opportunity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.opportunity-row + .opportunity-row {
+  margin-top: 10px;
+}
+
+.opportunity-row strong {
+  display: block;
+  margin-top: 8px;
+  color: #202123;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.opportunity-row-side {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.opportunity-row-side strong {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.opportunity-row-side span {
+  color: #555555;
+  font-size: 0.82rem;
+}
+
+.monthly-report,
+.timeline-shell {
+  margin-bottom: 42px;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.report-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.report-list {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.report-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.report-line strong,
+.report-line span {
+  display: block;
+}
+
+.report-line strong {
+  color: #202123;
+  font-size: 0.94rem;
+  font-weight: 500;
+}
+
+.report-line span {
+  margin-top: 2px;
+  color: #747474;
+  font-size: 0.8rem;
+}
+
+.timeline-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.timeline-merchant-list,
+.timeline-detail {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.timeline-merchant-list {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 8px;
+}
+
+.timeline-merchant-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #333333;
+  text-align: left;
+}
+
+.timeline-merchant-list button.active,
+.timeline-merchant-list button:hover {
+  background: #f3f3f3;
+}
+
+.timeline-merchant-list span,
+.timeline-merchant-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-merchant-list span {
+  color: #333333;
+  font-size: 0.88rem;
+}
+
+.timeline-merchant-list strong {
+  color: #666666;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.timeline-detail {
+  padding: 16px;
+  overflow: hidden;
+}
+
+.timeline-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.timeline-detail-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #202123;
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.timeline-detail-head span {
+  display: block;
+  margin-top: 4px;
+  color: #707070;
+  font-size: 0.84rem;
+}
+
+.timeline-detail-head > strong {
+  color: #202123;
+  font-size: 1.25rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.timeline-chart {
+  width: 100%;
+  height: 210px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.timeline-chart path {
+  fill: none;
+  stroke: #202123;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.timeline-chart circle {
+  fill: #ffffff;
+  stroke: #202123;
+  stroke-width: 3;
+}
+
+.timeline-chart text {
+  fill: #777777;
+  font-size: 12px;
+  text-anchor: middle;
+}
+
+.timeline-payments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.timeline-payment {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.timeline-payment span,
+.timeline-payment strong,
+.timeline-payment small {
+  display: block;
+}
+
+.timeline-payment span,
+.timeline-payment small {
+  color: #747474;
+  font-size: 0.78rem;
+}
+
+.timeline-payment strong {
+  margin: 3px 0;
+  color: #202123;
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .drain-grid {
@@ -1583,8 +2023,15 @@ h2 {
   .content-grid,
   .connect-hero,
   .drain-grid,
+  .opportunity-grid,
+  .report-columns,
+  .timeline-layout,
   .benefit-strip {
     grid-template-columns: 1fr;
+  }
+
+  .timeline-merchant-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .benefit-strip {
@@ -1614,7 +2061,34 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .metric-strip {
+  .metric-strip,
+  .report-grid,
+  .timeline-payments {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature-switcher button {
+    width: 100%;
+  }
+
+  .feature-intro,
+  .opportunity-row,
+  .timeline-detail-head {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .impact-meter,
+  .report-total {
+    min-width: 0;
+  }
+
+  .timeline-merchant-list {
     grid-template-columns: 1fr;
   }
 

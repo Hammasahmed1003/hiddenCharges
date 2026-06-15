@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
 import {
   AlertTriangle,
+  BarChart3,
   CalendarDays,
   CheckCircle2,
   CreditCard,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   Tag,
+  TrendingUp,
   WalletCards
 } from "lucide-react";
 import "./styles.css";
@@ -30,6 +32,12 @@ const CURRENCY_OPTIONS = [
   { code: "GBP", flag: "🇬🇧", label: "GBP" },
   { code: "AED", flag: "🇦🇪", label: "AED" },
   { code: "INR", flag: "🇮🇳", label: "INR" }
+];
+const FEATURE_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "savings", label: "Savings Opportunities" },
+  { id: "report", label: "Monthly Report" },
+  { id: "timeline", label: "Subscription Timeline" }
 ];
 
 function mergeSubscription(list, subscription) {
@@ -51,6 +59,7 @@ const fallbackSubscriptions = [
     cadence: "monthly",
     category: "Entertainment",
     nextBillingDate: "2026-07-01",
+    lastChargedAt: "2026-06-01",
     confidence: 0.96,
     status: "verified",
     sourceEmail: { sender: "Netflix Billing", subject: "Your Netflix receipt" }
@@ -63,6 +72,7 @@ const fallbackSubscriptions = [
     cadence: "monthly",
     category: "Cloud",
     nextBillingDate: "2026-06-27",
+    lastChargedAt: "2026-06-13",
     confidence: 0.91,
     status: "verified",
     sourceEmail: { sender: "Google Payments", subject: "Google One subscription payment" }
@@ -75,6 +85,7 @@ const fallbackSubscriptions = [
     cadence: "monthly",
     category: "Productivity",
     nextBillingDate: "2026-06-19",
+    lastChargedAt: "2026-06-06",
     confidence: 0.72,
     status: "needs_review",
     sourceEmail: { sender: "Canva", subject: "Your invoice from Canva" }
@@ -118,6 +129,7 @@ function groupSpendByCurrency(items) {
 }
 
 function convertAmount(amount, fromCurrency, toCurrency, rates) {
+  if (fromCurrency === toCurrency) return Number(amount || 0);
   const fromRate = rates?.[fromCurrency];
   const toRate = rates?.[toCurrency];
   if (!fromRate || !toRate) return null;
@@ -196,6 +208,233 @@ function subscriptionDrainInsights(items, rates) {
     .slice(0, 3);
 }
 
+function verifiedPaidItems(items) {
+  return items.filter((item) => item.status === "verified" && item.paymentState !== "failed");
+}
+
+function itemAmountInCurrency(item, targetCurrency, rates) {
+  return convertAmount(Number(item.amount || 0), item.currency || "PKR", targetCurrency, rates);
+}
+
+function monthKey(value) {
+  const date = value ? new Date(value) : new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(value) {
+  const date = value ? new Date(value) : new Date();
+  return date.toLocaleDateString("en-PK", { month: "long", year: "numeric" });
+}
+
+function groupPaymentsByMerchant(items) {
+  return items.reduce((groups, item) => {
+    const key = `${item.merchantName}::${item.currency || "PKR"}`;
+    groups[key] = [...(groups[key] || []), item];
+    return groups;
+  }, {});
+}
+
+function latestPayment(items) {
+  return [...items].sort((a, b) => new Date(b.lastChargedAt || 0) - new Date(a.lastChargedAt || 0))[0];
+}
+
+function buildSavingsOpportunities(items, rates, targetCurrency) {
+  const paid = verifiedPaidItems(items).filter((item) => dateInCurrentYear(item.lastChargedAt));
+  const merchantGroups = groupPaymentsByMerchant(paid);
+  const opportunities = [];
+
+  Object.values(merchantGroups).forEach((payments) => {
+    const latest = latestPayment(payments);
+    const multiplier = annualMultiplier(latest?.cadence);
+    const latestConverted = latest ? itemAmountInCurrency(latest, targetCurrency, rates) : null;
+    if (latest && multiplier && latestConverted !== null) {
+      const projected = latestConverted * multiplier;
+      opportunities.push({
+        id: `drain-${latest.merchantName}-${latest.currency}`,
+        type: "Recurring drain",
+        title: `${latest.merchantName} may cost ${formatMoney(projected, targetCurrency)} in the next 12 months`,
+        merchant: latest.merchantName,
+        impact: projected,
+        impactLabel: formatMoney(projected, targetCurrency),
+        description:
+          "This is based on the latest verified recurring charge and billing period. It is a review signal, not a cancellation recommendation.",
+        evidence: `${formatMoney(latest.amount, latest.currency)} ${latest.cadence} charge found in ${payments.length} verified payment${payments.length === 1 ? "" : "s"}.`,
+        confidence: latest.confidence >= 0.9 ? "High" : "Medium",
+        action: "Review whether this plan still earns its place."
+      });
+    }
+
+    if (payments.length >= 2) {
+      const sorted = [...payments].sort(
+        (a, b) => new Date(a.lastChargedAt || 0) - new Date(b.lastChargedAt || 0)
+      );
+      const recent = sorted[sorted.length - 1];
+      const previous = sorted.slice(0, -1);
+      const previousAverage =
+        previous.reduce((sum, item) => sum + Number(item.amount || 0), 0) / previous.length;
+      if (previousAverage > 0 && Number(recent.amount || 0) > previousAverage * 1.15) {
+        const increase = Number(recent.amount || 0) - previousAverage;
+        const increaseConverted = itemAmountInCurrency(
+          { ...recent, amount: increase },
+          targetCurrency,
+          rates
+        );
+        if (increaseConverted !== null) {
+          const multiplier = annualMultiplier(recent.cadence) || 1;
+          opportunities.push({
+            id: `increase-${recent.merchantName}-${recent.currency}`,
+            type: "Price increase",
+            title: `${recent.merchantName} looks ${Math.round(((recent.amount - previousAverage) / previousAverage) * 100)}% higher than before`,
+            merchant: recent.merchantName,
+            impact: increaseConverted * multiplier,
+            impactLabel: formatMoney(increaseConverted * multiplier, targetCurrency),
+            description:
+              "The latest verified charge is noticeably higher than the earlier average for the same merchant and currency.",
+            evidence: `Latest ${formatMoney(recent.amount, recent.currency)} vs earlier average ${formatMoney(previousAverage, recent.currency)}.`,
+            confidence: "Medium",
+            action: "Check whether this was a plan upgrade, tax change, or price increase."
+          });
+        }
+      }
+    }
+  });
+
+  const recurringByCategory = paid.reduce((groups, item) => {
+    if (!annualMultiplier(item.cadence)) return groups;
+    const category = item.category || "Other";
+    const merchantKey = `${item.merchantName}::${item.currency || "PKR"}`;
+    groups[category] = {
+      ...(groups[category] || {}),
+      [merchantKey]: item
+    };
+    return groups;
+  }, {});
+
+  Object.entries(recurringByCategory).forEach(([category, merchants]) => {
+    const merchantItems = Object.values(merchants);
+    if (merchantItems.length < 2) return;
+    const annualTotal = merchantItems.reduce((sum, item) => {
+      const converted = itemAmountInCurrency(item, targetCurrency, rates);
+      const multiplier = annualMultiplier(item.cadence) || 0;
+      return converted === null ? sum : sum + converted * multiplier;
+    }, 0);
+    opportunities.push({
+      id: `overlap-${category}`,
+      type: "Category overlap",
+      title: `${merchantItems.length} recurring ${category} tools may overlap`,
+      merchant: category,
+      impact: annualTotal,
+      impactLabel: formatMoney(annualTotal, targetCurrency),
+      description:
+        "Multiple recurring tools in one category can be normal for work, but this is where forgotten overlap often hides.",
+      evidence: merchantItems.map((item) => item.merchantName).join(", "),
+      confidence: "Medium",
+      action: "Compare usage and keep only the tools still doing clear work."
+    });
+  });
+
+  items
+    .filter((item) => item.status === "verified" && item.paymentState === "failed")
+    .slice(0, 3)
+    .forEach((item) => {
+      opportunities.push({
+        id: `failed-${item._id}`,
+        type: "Failed payment risk",
+        title: `${item.merchantName} had a failed payment`,
+        merchant: item.merchantName,
+        impact: 0,
+        impactLabel: "Risk",
+        description:
+          "This may not save money directly, but it can prevent service interruption, late fees, or surprise retry charges.",
+        evidence: item.sourceEmail?.subject || "Verified failed-payment email",
+        confidence: "High",
+        action: "Check whether the service is still needed before retrying payment."
+      });
+    });
+
+  return opportunities
+    .filter((item) => item.impact > 0 || item.type === "Failed payment risk")
+    .sort((a, b) => b.impact - a.impact)
+    .slice(0, 8);
+}
+
+function buildMonthlyReport(items, rates, targetCurrency) {
+  const today = new Date();
+  const currentKey = monthKey(today);
+  const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const previousKey = monthKey(previousMonth);
+  const paid = verifiedPaidItems(items);
+  const current = paid.filter((item) => monthKey(item.lastChargedAt) === currentKey);
+  const previous = paid.filter((item) => monthKey(item.lastChargedAt) === previousKey);
+  const total = totalInCurrency(groupSpendByCurrency(current), targetCurrency, rates);
+  const previousTotal = totalInCurrency(groupSpendByCurrency(previous), targetCurrency, rates);
+  const categorySpend = Object.entries(
+    current.reduce((groups, item) => {
+      const category = item.category || "Other";
+      groups[category] = [...(groups[category] || []), item];
+      return groups;
+    }, {})
+  )
+    .map(([category, categoryItems]) => ({
+      category,
+      amount: totalInCurrency(groupSpendByCurrency(categoryItems), targetCurrency, rates) || 0,
+      count: categoryItems.length
+    }))
+    .sort((a, b) => b.amount - a.amount);
+  const merchantSpend = Object.values(groupPaymentsByMerchant(current))
+    .map((merchantItems) => ({
+      merchant: merchantItems[0].merchantName,
+      category: merchantItems[0].category || "Other",
+      amount: totalInCurrency(groupSpendByCurrency(merchantItems), targetCurrency, rates) || 0,
+      count: merchantItems.length
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return {
+    label: monthLabel(today),
+    total,
+    previousTotal,
+    count: current.length,
+    failedCount: items.filter(
+      (item) => item.status === "verified" && item.paymentState === "failed" && monthKey(item.lastChargedAt) === currentKey
+    ).length,
+    topCategory: categorySpend[0],
+    topMerchant: merchantSpend[0],
+    categorySpend,
+    merchantSpend,
+    currency: targetCurrency
+  };
+}
+
+function buildTimelineGroups(items, rates, targetCurrency) {
+  return Object.values(groupPaymentsByMerchant(verifiedPaidItems(items)))
+    .map((payments) => {
+      const sorted = [...payments].sort(
+        (a, b) => new Date(a.lastChargedAt || 0) - new Date(b.lastChargedAt || 0)
+      );
+      const points = sorted.map((item) => ({
+        date: item.lastChargedAt,
+        label: item.lastChargedAt
+          ? new Date(item.lastChargedAt).toLocaleDateString("en-PK", { month: "short", day: "numeric" })
+          : "Unknown",
+        amount: itemAmountInCurrency(item, targetCurrency, rates) || 0,
+        sourceAmount: Number(item.amount || 0),
+        sourceCurrency: item.currency || "PKR"
+      }));
+      return {
+        key: `${payments[0].merchantName}-${payments[0].currency}`,
+        merchant: payments[0].merchantName,
+        category: payments[0].category || "Other",
+        cadence: latestPayment(payments)?.cadence || "unknown",
+        total: points.reduce((sum, point) => sum + point.amount, 0),
+        latest: points[points.length - 1],
+        points
+      };
+    })
+    .filter((group) => group.points.length > 0)
+    .sort((a, b) => b.total - a.total);
+}
+
 function App() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -211,6 +450,7 @@ function App() {
   const [rates, setRates] = useState({ USD: 1 });
   const [ratesMeta, setRatesMeta] = useState({ stale: true, fetchedAt: null });
   const [selectedCurrency, setSelectedCurrency] = useState("PKR");
+  const [activeFeature, setActiveFeature] = useState("overview");
   const socketRef = useRef(null);
   const path = window.location.pathname;
 
@@ -467,7 +707,10 @@ function App() {
         (a, b) => new Date(a.nextBillingDate) - new Date(b.nextBillingDate)
       ),
       categorySpend,
-      drainInsights: subscriptionDrainInsights(subscriptions, rates)
+      drainInsights: subscriptionDrainInsights(subscriptions, rates),
+      savingsOpportunities: buildSavingsOpportunities(subscriptions, rates, selectedCurrency),
+      monthlyReport: buildMonthlyReport(subscriptions, rates, selectedCurrency),
+      timelineGroups: buildTimelineGroups(subscriptions, rates, selectedCurrency)
     };
   }, [subscriptions, rates, selectedCurrency]);
 
@@ -559,77 +802,32 @@ function App() {
           </span>
         </section>
 
-        <section className="overview-grid">
-          {loading ? (
-            <OverviewSkeleton />
-          ) : (
-            <>
-              <article className="summary-card primary-summary">
-                <div className="panel-header">
-                  <span>Verified spend by currency</span>
-                  <ShieldCheck size={18} />
-                </div>
-                <ConversionSummary
-                  groups={stats.yearlySpend}
-                  rates={rates}
-                  ratesMeta={ratesMeta}
-                  selectedCurrency={selectedCurrency}
-                  selectedTotal={stats.selectedTotal}
-                  usdTotal={stats.usdTotal}
-                  onSelectCurrency={setSelectedCurrency}
-                />
-              </article>
-              <div className="overview-side">
-                <div className="metric-strip">
-                  <Metric icon={WalletCards} label="Verified payments" value={stats.paymentCount} />
-                  <Metric icon={AlertTriangle} label="Failed payments" value={stats.failedCount} />
-                  <Metric icon={CalendarDays} label="Upcoming renewals" value={stats.upcomingCount} />
-                </div>
-                <aside className="calendar-panel compact-calendar">
-                  <div className="panel-title">
-                    <CalendarDays size={18} />
-                    Renewal calendar
-                  </div>
-                  <RenewalCalendar subscriptions={stats.upcomingRenewals} compact />
-                </aside>
-              </div>
-            </>
+        <FeatureSwitcher activeFeature={activeFeature} onChange={setActiveFeature} />
+
+        <section className="feature-view" key={activeFeature}>
+          {activeFeature === "overview" && (
+            <OverviewFeature
+              loading={loading}
+              rates={rates}
+              ratesMeta={ratesMeta}
+              selectedCurrency={selectedCurrency}
+              setSelectedCurrency={setSelectedCurrency}
+              stats={stats}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
+            />
           )}
-        </section>
-
-        <section className="category-panel">
-          <div className="category-panel-head">
-            <div>
-              <h2>Category spend</h2>
-              <p>Tap a category to filter the ledger.</p>
-            </div>
-          </div>
-          <CategoryChips
-            categories={stats.categorySpend}
-            filter={categoryFilter}
-            onChange={setCategoryFilter}
-            rates={rates}
-            selectedCurrency={selectedCurrency}
-          />
-        </section>
-
-        <section className="insight-panel">
-          <div className="dashboard-heading">
-            <div>
-              <h2>Largest subscription drains</h2>
-              <p>Where the most money has gone since January 2026, and what recurring plans may cost if left active.</p>
-            </div>
-          </div>
-          {loading ? (
-            <TableSkeleton />
-          ) : stats.drainInsights.length === 0 ? (
-            <div className="empty-state compact">No recurring spend insight yet.</div>
-          ) : (
-            <div className="drain-grid">
-              {stats.drainInsights.map((item) => (
-                <SubscriptionDrainCard key={item.key} item={item} />
-              ))}
-            </div>
+          {activeFeature === "savings" && (
+            <SavingsOpportunitiesView
+              opportunities={stats.savingsOpportunities}
+              selectedCurrency={selectedCurrency}
+            />
+          )}
+          {activeFeature === "report" && (
+            <MonthlyReportView report={stats.monthlyReport} />
+          )}
+          {activeFeature === "timeline" && (
+            <SubscriptionTimelineView groups={stats.timelineGroups} currency={selectedCurrency} />
           )}
         </section>
 
@@ -694,6 +892,380 @@ function App() {
         </section>
       </section>
     </main>
+  );
+}
+
+function FeatureSwitcher({ activeFeature, onChange }) {
+  return (
+    <section className="feature-switcher" aria-label="Dashboard feature sections">
+      {FEATURE_TABS.map((tab) => (
+        <button
+          className={activeFeature === tab.id ? "active" : ""}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function OverviewFeature({
+  loading,
+  rates,
+  ratesMeta,
+  selectedCurrency,
+  setSelectedCurrency,
+  stats,
+  categoryFilter,
+  setCategoryFilter
+}) {
+  return (
+    <>
+      <section className="overview-grid">
+        {loading ? (
+          <OverviewSkeleton />
+        ) : (
+          <>
+            <article className="summary-card primary-summary">
+              <div className="panel-header">
+                <span>Verified spend by currency</span>
+                <ShieldCheck size={18} />
+              </div>
+              <ConversionSummary
+                groups={stats.yearlySpend}
+                rates={rates}
+                ratesMeta={ratesMeta}
+                selectedCurrency={selectedCurrency}
+                selectedTotal={stats.selectedTotal}
+                usdTotal={stats.usdTotal}
+                onSelectCurrency={setSelectedCurrency}
+              />
+            </article>
+            <div className="overview-side">
+              <div className="metric-strip">
+                <Metric icon={WalletCards} label="Verified payments" value={stats.paymentCount} />
+                <Metric icon={AlertTriangle} label="Failed payments" value={stats.failedCount} />
+                <Metric icon={CalendarDays} label="Upcoming renewals" value={stats.upcomingCount} />
+              </div>
+              <aside className="calendar-panel compact-calendar">
+                <div className="panel-title">
+                  <CalendarDays size={18} />
+                  Renewal calendar
+                </div>
+                <RenewalCalendar subscriptions={stats.upcomingRenewals} compact />
+              </aside>
+            </div>
+          </>
+        )}
+      </section>
+
+      <section className="category-panel">
+        <div className="category-panel-head">
+          <div>
+            <h2>Category spend</h2>
+            <p>Tap a category to filter the ledger.</p>
+          </div>
+        </div>
+        <CategoryChips
+          categories={stats.categorySpend}
+          filter={categoryFilter}
+          onChange={setCategoryFilter}
+          rates={rates}
+          selectedCurrency={selectedCurrency}
+        />
+      </section>
+
+      <section className="insight-panel">
+        <div className="dashboard-heading">
+          <div>
+            <h2>Largest subscription drains</h2>
+            <p>Where the most money has gone since January 2026, and what recurring plans may cost if left active.</p>
+          </div>
+        </div>
+        {loading ? (
+          <TableSkeleton />
+        ) : stats.drainInsights.length === 0 ? (
+          <div className="empty-state compact">No recurring spend insight yet.</div>
+        ) : (
+          <div className="drain-grid">
+            {stats.drainInsights.map((item) => (
+              <SubscriptionDrainCard key={item.key} item={item} />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function SavingsOpportunitiesView({ opportunities, selectedCurrency }) {
+  const totalImpact = opportunities.reduce((sum, item) => sum + Number(item.impact || 0), 0);
+  const highValue = opportunities.filter((item) => item.impact > 0).slice(0, 3);
+
+  return (
+    <section className="opportunity-shell">
+      <div className="feature-intro opportunity-hero">
+        <div>
+          <span className="eyebrow">SaaS hook</span>
+          <h2>Potential savings opportunities</h2>
+          <p>
+            HiddenCharges reviews verified charges for recurring drain, category overlap, price
+            increases, and failed-payment risk. These are review signals, not guaranteed savings.
+          </p>
+        </div>
+        <div className="impact-meter">
+          <span>Annual exposure to review</span>
+          <strong>{formatMoney(totalImpact, selectedCurrency)}</strong>
+          <small>Based on verified billing emails and detected cadence.</small>
+        </div>
+      </div>
+
+      <div className="opportunity-grid">
+        <article className="opportunity-card focus">
+          <div className="panel-title">
+            <TrendingUp size={18} />
+            What this means
+          </div>
+          <p>
+            This view helps users answer the paid-SaaS question: which subscriptions deserve a
+            decision today? It prioritizes repeat charges, overlap, and unusually higher bills so
+            the user sees where money may keep leaking.
+          </p>
+          <div className="opportunity-rules">
+            {["Recurring annual exposure", "Duplicate category pressure", "Price increase signals", "Failed payment risk"].map((rule) => (
+              <span key={rule}>{rule}</span>
+            ))}
+          </div>
+        </article>
+
+        {highValue.map((item) => (
+          <OpportunityCard item={item} key={item.id} />
+        ))}
+      </div>
+
+      <div className="opportunity-list">
+        <div className="dashboard-heading">
+          <div>
+            <h2>Opportunity queue</h2>
+            <p>Each card includes the rule, evidence, confidence, and a practical next action.</p>
+          </div>
+        </div>
+        {opportunities.length === 0 ? (
+          <div className="empty-state compact">
+            No savings opportunities yet. More verified recurring receipts will make this view stronger.
+          </div>
+        ) : (
+          opportunities.map((item) => <OpportunityRow item={item} key={item.id} />)
+        )}
+      </div>
+    </section>
+  );
+}
+
+function OpportunityCard({ item }) {
+  return (
+    <article className="opportunity-card">
+      <span className="opportunity-type">{item.type}</span>
+      <h3>{item.title}</h3>
+      <strong>{item.impactLabel}</strong>
+      <p>{item.description}</p>
+      <small>{item.evidence}</small>
+    </article>
+  );
+}
+
+function OpportunityRow({ item }) {
+  return (
+    <article className="opportunity-row">
+      <div>
+        <span className="opportunity-type">{item.type}</span>
+        <strong>{item.title}</strong>
+        <p>{item.description}</p>
+        <small>Evidence: {item.evidence}</small>
+      </div>
+      <div className="opportunity-row-side">
+        <strong>{item.impactLabel}</strong>
+        <span>{item.confidence} confidence</span>
+        <small>{item.action}</small>
+      </div>
+    </article>
+  );
+}
+
+function MonthlyReportView({ report }) {
+  const change =
+    report.previousTotal && report.total !== null
+      ? ((report.total - report.previousTotal) / report.previousTotal) * 100
+      : null;
+
+  return (
+    <section className="monthly-report">
+      <div className="feature-intro">
+        <div>
+          <span className="eyebrow">Monthly report</span>
+          <h2>{report.label}</h2>
+          <p>
+            A clean monthly summary of verified billing activity. This version stays inside the
+            dashboard; email delivery and PDF export can become paid add-ons later.
+          </p>
+        </div>
+        <div className="report-total">
+          <span>Verified spend this month</span>
+          <strong>{report.total === null ? "Rates unavailable" : formatMoney(report.total, report.currency)}</strong>
+          <small>
+            {change === null
+              ? "Previous month comparison appears after enough data."
+              : `${change >= 0 ? "+" : ""}${Math.round(change)}% vs previous month`}
+          </small>
+        </div>
+      </div>
+
+      <div className="report-grid">
+        <Metric icon={WalletCards} label="Payments found" value={report.count} />
+        <Metric icon={AlertTriangle} label="Failed payments" value={report.failedCount} />
+        <Metric
+          icon={Tag}
+          label="Top category"
+          value={report.topCategory ? report.topCategory.category : "None"}
+        />
+      </div>
+
+      <div className="report-columns">
+        <ReportList
+          title="Category breakdown"
+          items={report.categorySpend.map((item) => ({
+            label: item.category,
+            meta: `${item.count} payment${item.count === 1 ? "" : "s"}`,
+            amount: formatMoney(item.amount, report.currency)
+          }))}
+        />
+        <ReportList
+          title="Top merchants"
+          items={report.merchantSpend.slice(0, 6).map((item) => ({
+            label: item.merchant,
+            meta: item.category,
+            amount: formatMoney(item.amount, report.currency)
+          }))}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ReportList({ title, items }) {
+  return (
+    <article className="report-list">
+      <div className="panel-title">
+        <FileText size={18} />
+        {title}
+      </div>
+      {items.length === 0 ? (
+        <div className="empty-state compact">No verified payments in this view yet.</div>
+      ) : (
+        items.map((item) => (
+          <div className="report-line" key={`${title}-${item.label}`}>
+            <div>
+              <strong>{item.label}</strong>
+              <span>{item.meta}</span>
+            </div>
+            <strong>{item.amount}</strong>
+          </div>
+        ))
+      )}
+    </article>
+  );
+}
+
+function SubscriptionTimelineView({ groups, currency }) {
+  const [selectedKey, setSelectedKey] = useState(groups[0]?.key || "");
+  const selected = groups.find((group) => group.key === selectedKey) || groups[0];
+
+  useEffect(() => {
+    if (!selectedKey && groups[0]?.key) setSelectedKey(groups[0].key);
+    if (selectedKey && groups.length && !groups.some((group) => group.key === selectedKey)) {
+      setSelectedKey(groups[0].key);
+    }
+  }, [groups, selectedKey]);
+
+  return (
+    <section className="timeline-shell">
+      <div className="feature-intro">
+        <div>
+          <span className="eyebrow">Subscription timeline</span>
+          <h2>See how each subscription changes over time</h2>
+          <p>
+            The timeline groups verified payments by merchant and plots charge history. It makes
+            repeat charges, price jumps, and one-off spikes easier to see at a glance.
+          </p>
+        </div>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="empty-state compact">No verified payment timeline yet.</div>
+      ) : (
+        <div className="timeline-layout">
+          <aside className="timeline-merchant-list">
+            {groups.slice(0, 10).map((group) => (
+              <button
+                className={selected?.key === group.key ? "active" : ""}
+                key={group.key}
+                onClick={() => setSelectedKey(group.key)}
+                type="button"
+              >
+                <span>{group.merchant}</span>
+                <strong>{formatMoney(group.total, currency)}</strong>
+              </button>
+            ))}
+          </aside>
+          {selected && <TimelineDetail group={selected} currency={currency} />}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TimelineDetail({ group, currency }) {
+  const maxAmount = Math.max(...group.points.map((point) => point.amount), 1);
+  const width = 520;
+  const height = 180;
+  const points = group.points.map((point, index) => {
+    const x = group.points.length === 1 ? width / 2 : (index / (group.points.length - 1)) * width;
+    const y = height - (point.amount / maxAmount) * (height - 28) - 12;
+    return { ...point, x, y };
+  });
+  const pathData = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+
+  return (
+    <article className="timeline-detail">
+      <div className="timeline-detail-head">
+        <div>
+          <h3><BarChart3 size={18} /> {group.merchant}</h3>
+          <span>{group.category} · {group.cadence}</span>
+        </div>
+        <strong>{formatMoney(group.total, currency)}</strong>
+      </div>
+      <svg className="timeline-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${group.merchant} payment timeline`}>
+        <path d={pathData} />
+        {points.map((point) => (
+          <g key={`${point.label}-${point.amount}`}>
+            <circle cx={point.x} cy={point.y} r="5" />
+            <text x={point.x} y={height - 2}>{point.label}</text>
+          </g>
+        ))}
+      </svg>
+      <div className="timeline-payments">
+        {group.points.map((point) => (
+          <div className="timeline-payment" key={`${point.date}-${point.sourceAmount}`}>
+            <span>{point.label}</span>
+            <strong>{formatMoney(point.amount, currency)}</strong>
+            <small>{formatMoney(point.sourceAmount, point.sourceCurrency)} original</small>
+          </div>
+        ))}
+      </div>
+    </article>
   );
 }
 
