@@ -42,6 +42,18 @@ const FEATURE_TABS = [
   { id: "timeline", label: "Subscription Timeline" }
 ];
 
+function BrandLogo({ size = 34 }) {
+  return (
+    <img
+      className="brand-logo"
+      src="/hidden-logo-mark.png"
+      alt="HiddenCharges logo"
+      width={size}
+      height={size}
+    />
+  );
+}
+
 function mergeSubscription(list, subscription) {
   if (!subscription) return list;
   const key = subscription._id || subscription.fingerprint;
@@ -744,7 +756,7 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
-            <ShieldCheck size={21} />
+            <BrandLogo />
           </div>
           <div>
             <strong>HiddenCharges</strong>
@@ -1450,7 +1462,7 @@ function ConnectLanding({ connectGmail }) {
       <header className="marketing-nav">
         <div className="brand compact">
           <div className="brand-mark">
-            <ShieldCheck size={20} />
+            <BrandLogo />
           </div>
           <strong>HiddenCharges</strong>
         </div>
@@ -1553,7 +1565,7 @@ function LegalPage({ page }) {
       <header className="marketing-nav">
         <div className="brand compact">
           <div className="brand-mark">
-            <ShieldCheck size={20} />
+            <BrandLogo />
           </div>
           <strong>HiddenCharges</strong>
         </div>
