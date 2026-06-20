@@ -756,13 +756,15 @@ function App() {
           <span className="drawer-label">Connected account</span>
           <strong>{user ? user.email : "No Gmail connected"}</strong>
           <p>{user ? "Live billing inbox monitor is active." : "Connect Gmail to begin scanning."}</p>
-          <button className="secondary-button disabled-feature" disabled title="Multiple accounts are coming soon">
+          <button className="coming-action" disabled title="Multiple accounts are coming soon">
             <Plus size={17} />
-            Add account
+            <span>Add account</span>
+            <small>Soon</small>
           </button>
-          <button className="secondary-button disabled-feature" disabled title="Account switching is coming soon">
+          <button className="coming-action" disabled title="Account switching is coming soon">
             <Mail size={17} />
-            Switch account
+            <span>Switch account</span>
+            <small>Soon</small>
           </button>
           {user && (
             <button className="secondary-button" onClick={disconnectGoogle}>
@@ -779,9 +781,10 @@ function App() {
             Receive a text when any verified payment happens in real time, so you do not need to
             check email.
           </p>
-          <button className="secondary-button disabled-feature" disabled title="WhatsApp alerts are coming soon">
+          <button className="coming-action" disabled title="WhatsApp alerts are coming soon">
             <MessageCircle size={17} />
-            Connect WhatsApp
+            <span>Connect WhatsApp</span>
+            <small>Pro</small>
           </button>
         </div>
 
@@ -1346,12 +1349,12 @@ function ProgressBar({ progress }) {
 
   return (
     <div className="scan-progress" role="status" aria-live="polite">
-      <div className="progress-spotlight">
-        <strong>{percent}%</strong>
+      <div className="progress-meta">
         <div>
           <span>{progress.message}</span>
           <small>{extractionText}</small>
         </div>
+        <strong className="progress-percent">{percent}%</strong>
       </div>
       <p className="progress-subline">
         First time can take some time, but it keeps running safely in the background.
