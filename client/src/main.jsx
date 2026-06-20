@@ -839,6 +839,14 @@ function App() {
               stats={stats}
               categoryFilter={categoryFilter}
               setCategoryFilter={setCategoryFilter}
+              query={query}
+              setQuery={setQuery}
+              filter={filter}
+              setFilter={setFilter}
+              filteredSubscriptions={filteredSubscriptions}
+              user={user}
+              usingDemo={usingDemo}
+              syncing={syncing}
             />
           )}
           {activeFeature === "savings" && (
@@ -853,66 +861,6 @@ function App() {
           {activeFeature === "timeline" && (
             <SubscriptionTimelineView groups={stats.timelineGroups} currency={selectedCurrency} />
           )}
-        </section>
-
-        <section className="dashboard-band">
-          <div className="dashboard-heading">
-            <div>
-              <h2>Spending history</h2>
-              <p>
-                {categoryFilter === "all"
-                  ? "First-time setup scans from January 2026 to today in the background; new payment emails appear automatically after that."
-                  : `Showing ${categoryFilter} payments. New verified payment emails still appear automatically.`}
-              </p>
-            </div>
-          </div>
-
-          <div className="control-row">
-            <label className="search-box">
-              <Search size={18} />
-              <input
-                placeholder="Search merchant, category, or sender"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            <div className="segmented" aria-label="Filter subscriptions">
-              {[
-                ["all", "All"],
-                ["verified", "Verified"],
-                ["failed", "Failed"]
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  className={filter === value ? "active" : ""}
-                  onClick={() => setFilter(value)}
-                >
-                  <Filter size={15} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="content-grid ledger-only">
-            <section className="table-panel" aria-label="Detected subscriptions">
-              <div className="table-head">
-                <span>Merchant</span>
-                <span>Paid date</span>
-                <span>Amount</span>
-                <span>State</span>
-              </div>
-              {loading ? (
-                <TableSkeleton />
-              ) : user && filteredSubscriptions.length === 0 && !usingDemo ? (
-                <EmptyConnectedState syncing={syncing} />
-              ) : filteredSubscriptions.length === 0 ? (
-                <div className="empty-state">No subscriptions match this view.</div>
-              ) : (
-                filteredSubscriptions.map((item) => <SubscriptionRow key={item._id} item={item} />)
-              )}
-            </section>
-          </div>
         </section>
       </section>
     </main>
@@ -963,7 +911,15 @@ function OverviewFeature({
   setSelectedCurrency,
   stats,
   categoryFilter,
-  setCategoryFilter
+  setCategoryFilter,
+  query,
+  setQuery,
+  filter,
+  setFilter,
+  filteredSubscriptions,
+  user,
+  usingDemo,
+  syncing
 }) {
   return (
     <>
@@ -1021,6 +977,19 @@ function OverviewFeature({
         />
       </section>
 
+      <SpendingHistory
+        categoryFilter={categoryFilter}
+        filter={filter}
+        filteredSubscriptions={filteredSubscriptions}
+        loading={loading}
+        query={query}
+        setFilter={setFilter}
+        setQuery={setQuery}
+        syncing={syncing}
+        user={user}
+        usingDemo={usingDemo}
+      />
+
       <section className="insight-panel">
         <div className="dashboard-heading">
           <div>
@@ -1041,6 +1010,81 @@ function OverviewFeature({
         )}
       </section>
     </>
+  );
+}
+
+function SpendingHistory({
+  categoryFilter,
+  filter,
+  filteredSubscriptions,
+  loading,
+  query,
+  setFilter,
+  setQuery,
+  syncing,
+  user,
+  usingDemo
+}) {
+  return (
+    <section className="dashboard-band">
+      <div className="dashboard-heading">
+        <div>
+          <h2>Spending history</h2>
+          <p>
+            {categoryFilter === "all"
+              ? "First-time setup scans from January 2026 to today in the background; new payment emails appear automatically after that."
+              : `Showing ${categoryFilter} payments. New verified payment emails still appear automatically.`}
+          </p>
+        </div>
+      </div>
+
+      <div className="control-row">
+        <label className="search-box">
+          <Search size={18} />
+          <input
+            placeholder="Search merchant, category, or sender"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <div className="segmented" aria-label="Filter subscriptions">
+          {[
+            ["all", "All"],
+            ["verified", "Verified"],
+            ["failed", "Failed"]
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              className={filter === value ? "active" : ""}
+              onClick={() => setFilter(value)}
+            >
+              <Filter size={15} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="content-grid ledger-only">
+        <section className="table-panel" aria-label="Detected subscriptions">
+          <div className="table-head">
+            <span>Merchant</span>
+            <span>Paid date</span>
+            <span>Amount</span>
+            <span>State</span>
+          </div>
+          {loading ? (
+            <TableSkeleton />
+          ) : user && filteredSubscriptions.length === 0 && !usingDemo ? (
+            <EmptyConnectedState syncing={syncing} />
+          ) : filteredSubscriptions.length === 0 ? (
+            <div className="empty-state">No subscriptions match this view.</div>
+          ) : (
+            filteredSubscriptions.map((item) => <SubscriptionRow key={item._id} item={item} />)
+          )}
+        </section>
+      </div>
+    </section>
   );
 }
 
