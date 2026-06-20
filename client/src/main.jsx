@@ -12,6 +12,8 @@ import {
   Inbox,
   LogOut,
   Mail,
+  MessageCircle,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -754,9 +756,13 @@ function App() {
           <span className="drawer-label">Connected account</span>
           <strong>{user ? user.email : "No Gmail connected"}</strong>
           <p>{user ? "Live billing inbox monitor is active." : "Connect Gmail to begin scanning."}</p>
-          <button className="secondary-button" onClick={connectGmail}>
+          <button className="secondary-button disabled-feature" disabled title="Multiple accounts are coming soon">
+            <Plus size={17} />
+            Add account
+          </button>
+          <button className="secondary-button disabled-feature" disabled title="Account switching is coming soon">
             <Mail size={17} />
-            {user ? "Switch account" : "Connect Gmail"}
+            Switch account
           </button>
           {user && (
             <button className="secondary-button" onClick={disconnectGoogle}>
@@ -766,10 +772,17 @@ function App() {
           )}
         </div>
 
-        <div className="account-drawer subtle">
-          <span className="drawer-label">Discounts</span>
-          <strong>Coming next</strong>
-          <p>We will flag duplicate tools, trials, and subscriptions that may be worth cancelling.</p>
+        <div className="account-drawer subtle paid-drawer">
+          <span className="drawer-label">WhatsApp alerts</span>
+          <strong>Coming in Pro</strong>
+          <p>
+            Receive a text when any verified payment happens in real time, so you do not need to
+            check email.
+          </p>
+          <button className="secondary-button disabled-feature" disabled title="WhatsApp alerts are coming soon">
+            <MessageCircle size={17} />
+            Connect WhatsApp
+          </button>
         </div>
 
       </aside>
@@ -779,17 +792,15 @@ function App() {
           <div>
             <h1>Dashboard <span className="beta-pill large">Beta</span></h1>
             <p>Verified payments, recurring risk, and upcoming renewals from your Gmail.</p>
-          </div>
-          <div className="header-actions">
-            <button className="secondary-button" onClick={loadSubscriptions}>
-              <RefreshCw size={17} />
-              Refresh
-            </button>
+            <span className="beta-subtitle">
+              Beta: totals, categories, renewal dates, and savings signals are approximate while
+              detection improves.
+            </span>
           </div>
         </header>
 
         {authNotice && (
-          <section className="notice-panel">
+          <section className={`notice-panel ${scanProgress ? "with-progress" : ""}`}>
             <div>
               {syncing ? <RefreshCw size={20} className="spin" /> : <CheckCircle2 size={20} />}
               <span>{authNotice}</span>
@@ -797,14 +808,6 @@ function App() {
             {scanProgress && <ProgressBar progress={scanProgress} />}
           </section>
         )}
-
-        <section className="beta-notice">
-          <ShieldCheck size={18} />
-          <span>
-            HiddenCharges is in Beta. We are improving detection, so totals, renewal dates, and
-            categories should be treated as approximate.
-          </span>
-        </section>
 
         <LiveMonitor connected={socketConnected} syncing={syncing} />
 
@@ -1343,9 +1346,12 @@ function ProgressBar({ progress }) {
 
   return (
     <div className="scan-progress" role="status" aria-live="polite">
-      <div className="progress-meta">
-        <span>{progress.message}</span>
-        <small>{extractionText}</small>
+      <div className="progress-spotlight">
+        <strong>{percent}%</strong>
+        <div>
+          <span>{progress.message}</span>
+          <small>{extractionText}</small>
+        </div>
       </div>
       <p className="progress-subline">
         First time can take some time, but it keeps running safely in the background.
@@ -1471,21 +1477,16 @@ function ConnectLanding({ connectGmail }) {
             Beta product: financial data shown here is approximate while we improve extraction and
             categorization.
           </div>
-          <div className="hero-security">
-            <div className="trust-icon">
-              <ShieldCheck size={19} />
-            </div>
-            <div>
-              <strong>Secure by design</strong>
-              <span>
-                Read-only Google access, encrypted connections, and billing-only extraction. We do
-                not send, edit, or delete your emails.
-              </span>
-            </div>
-          </div>
-          <button className="google-button" onClick={connectGmail}>
-            <Mail size={18} />
-            Continue with Google
+          <p className="trust-line">
+            <ShieldCheck size={16} />
+            Read-only Gmail access. HiddenCharges extracts billing signals only and never sends,
+            edits, or deletes emails.
+          </p>
+          <button className="google-button gmail-button" onClick={connectGmail}>
+            <span className="gmail-mark" aria-hidden="true">
+              <Mail size={18} />
+            </span>
+            Continue with Gmail
           </button>
         </div>
 
