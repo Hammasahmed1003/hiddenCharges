@@ -41,6 +41,54 @@ const FEATURE_TABS = [
   { id: "report", label: "Monthly Report" },
   { id: "timeline", label: "Subscription Timeline" }
 ];
+const PRICING_PLANS = [
+  {
+    id: "free",
+    name: "Free",
+    price: "$0",
+    description: "For one inbox and basic subscription visibility while you test the product.",
+    badge: "Start here",
+    cta: "Use Free",
+    features: [
+      "1 Gmail account",
+      "Verified payment dashboard",
+      "Spending history and category spend",
+      "Renewal calendar when dates are detected",
+      "Savings opportunities in beta"
+    ]
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "$6",
+    description: "For people who want real-time alerts and multiple personal inboxes in one place.",
+    badge: "Most useful",
+    cta: "Start with Pro",
+    featured: true,
+    features: [
+      "Up to 3 Gmail accounts",
+      "WhatsApp payment notifications",
+      "Everything in Free",
+      "Monthly report inside dashboard",
+      "Subscription timeline and largest drains"
+    ]
+  },
+  {
+    id: "max",
+    name: "Max",
+    price: "$15",
+    description: "For founders and small teams tracking billing across more Gmail accounts.",
+    badge: "For teams",
+    cta: "Choose Max",
+    features: [
+      "Up to 5 Gmail accounts",
+      "WhatsApp notifications included",
+      "Best for founders and agencies",
+      "More room for shared billing inboxes",
+      "Priority feature access during beta"
+    ]
+  }
+];
 
 function BrandLogo({ size = 34 }) {
   return (
@@ -732,6 +780,10 @@ function App() {
     };
   }, [subscriptions, rates, selectedCurrency]);
 
+  if (path === "/pricing") {
+    return <PricingPage />;
+  }
+
   if (path === "/privacy" || path === "/terms") {
     return <LegalPage page={path === "/privacy" ? "privacy" : "terms"} />;
   }
@@ -784,6 +836,16 @@ function App() {
               Disconnect
             </button>
           )}
+        </div>
+
+        <div className="account-drawer subtle pricing-drawer">
+          <span className="drawer-label">Plans</span>
+          <strong>Upgrade when ready</strong>
+          <p>Free tracks one Gmail. Pro unlocks WhatsApp alerts and 3 Gmail accounts.</p>
+          <button className="pricing-link-button" onClick={() => { window.location.href = "/pricing"; }}>
+            <Sparkles size={17} />
+            <span>View pricing</span>
+          </button>
         </div>
 
         <div className="account-drawer subtle paid-drawer">
@@ -1645,6 +1707,84 @@ function LegalPage({ page }) {
         </button>
       </section>
     </main>
+  );
+}
+
+function PricingPage() {
+  return (
+    <main className="marketing-shell pricing-shell">
+      <header className="marketing-nav">
+        <div className="brand compact">
+          <div className="brand-mark">
+            <BrandLogo />
+          </div>
+          <strong>HiddenCharges</strong>
+        </div>
+        <div className="marketing-links">
+          <a href="/">Dashboard</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </div>
+      </header>
+
+      <section className="pricing-page">
+        <div className="pricing-copy">
+          <span className="eyebrow">Simple beta pricing</span>
+          <h1>Start free. Pay only when alerts and more Gmail accounts matter.</h1>
+          <p>
+            HiddenCharges is built around one clear promise: show where subscription money is
+            going, then alert you before billing gets ignored. Free is enough to try it. Pro is the
+            plan most users should pick when WhatsApp notifications go live.
+          </p>
+        </div>
+
+        <div className="pricing-grid">
+          {PRICING_PLANS.map((plan) => (
+            <PricingCard plan={plan} key={plan.id} />
+          ))}
+        </div>
+
+        <div className="pricing-note">
+          <ShieldCheck size={18} />
+          <span>
+            Beta note: payments are not connected yet. These plans lock the product direction;
+            checkout will be wired through Lemon Squeezy before public launch.
+          </span>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function PricingCard({ plan }) {
+  return (
+    <article className={`pricing-card ${plan.featured ? "featured" : ""}`}>
+      <div className="pricing-card-top">
+        <div className="pricing-icon">
+          {plan.featured ? <Sparkles size={20} /> : <WalletCards size={20} />}
+        </div>
+        <span>{plan.badge}</span>
+      </div>
+      <div className="pricing-title">
+        <h2>{plan.name}</h2>
+        <p>{plan.description}</p>
+      </div>
+      <div className="pricing-amount">
+        <strong>{plan.price}</strong>
+        <span>/month</span>
+      </div>
+      <ul className="pricing-list">
+        {plan.features.map((feature) => (
+          <li key={feature}>
+            <CheckCircle2 size={17} />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
+      <button className={`pricing-cta ${plan.featured ? "featured" : ""}`} type="button">
+        {plan.cta}
+      </button>
+    </article>
   );
 }
 
