@@ -29,5 +29,10 @@ export const config = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
     model: process.env.OPENAI_MODEL || "gpt-4.1-mini"
+  },
+  lemonSqueezy: {
+    webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET || "",
+    proVariantId: process.env.LEMONSQUEEZY_PRO_VARIANT_ID || "",
+    maxVariantId: process.env.LEMONSQUEEZY_MAX_VARIANT_ID || ""
   }
 };

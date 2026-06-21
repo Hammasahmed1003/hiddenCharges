@@ -89,6 +89,14 @@ const PRICING_PLANS = [
     ]
   }
 ];
+const DEFAULT_PLAN = {
+  id: "free",
+  name: "Free",
+  price: 0,
+  gmailLimit: 1,
+  whatsappAlerts: false,
+  status: "free"
+};
 
 function BrandLogo({ size = 34 }) {
   return (
@@ -506,6 +514,9 @@ function App() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [usingDemo, setUsingDemo] = useState(false);
   const [user, setUser] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [activeAccountId, setActiveAccountId] = useState(null);
+  const [plan, setPlan] = useState(DEFAULT_PLAN);
   const [authLoading, setAuthLoading] = useState(true);
   const [authNotice, setAuthNotice] = useState("");
   const [scanProgress, setScanProgress] = useState(null);
@@ -523,8 +534,14 @@ function App() {
       if (!response.ok) throw new Error("Unable to load auth status");
       const data = await response.json();
       setUser(data.user);
+      setAccounts(data.accounts || []);
+      setActiveAccountId(data.activeAccountId || data.user?.id || null);
+      setPlan(data.plan || data.user?.plan || DEFAULT_PLAN);
     } catch {
       setUser(null);
+      setAccounts([]);
+      setActiveAccountId(null);
+      setPlan(DEFAULT_PLAN);
     } finally {
       setAuthLoading(false);
     }
@@ -685,9 +702,12 @@ function App() {
     };
   }, [user]);
 
-  async function connectGmail() {
+  async function connectGmail(mode = "login") {
+    const flowMode = mode === "add" ? "add" : "login";
     try {
-      const response = await fetch(`${API_URL}/api/auth/gmail/url`, { credentials: "include" });
+      const response = await fetch(`${API_URL}/api/auth/gmail/url?mode=${flowMode}`, {
+        credentials: "include"
+      });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.message || "Unable to start Gmail connection");
@@ -699,6 +719,36 @@ function App() {
     }
   }
 
+  async function switchAccount(accountId) {
+    if (!accountId || String(accountId) === String(activeAccountId)) return;
+    setLoading(true);
+    setSyncing(false);
+    setScanProgress(null);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/switch-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ accountId })
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Unable to switch Gmail account");
+      }
+      const data = await response.json();
+      setUser(data.user);
+      setAccounts(data.accounts || []);
+      setActiveAccountId(data.activeAccountId || accountId);
+      setPlan(data.plan || data.user?.plan || DEFAULT_PLAN);
+      setAuthNotice(`Switched to ${data.user?.email || "selected Gmail"}.`);
+      setSubscriptions([]);
+      await loadSubscriptions();
+    } catch (error) {
+      alert(error.message);
+      setLoading(false);
+    }
+  }
+
   async function disconnectGoogle() {
     try {
       await fetch(`${API_URL}/api/auth/disconnect`, {
@@ -706,6 +756,9 @@ function App() {
         credentials: "include"
       });
       setUser(null);
+      setAccounts([]);
+      setActiveAccountId(null);
+      setPlan(DEFAULT_PLAN);
       setSubscriptions([]);
       setUsingDemo(false);
       setAuthNotice("");
@@ -816,20 +869,15 @@ function App() {
           </div>
         </div>
 
-        <div className="account-drawer">
-          <span className="drawer-label">Connected account</span>
-          <strong>{user ? user.email : "No Gmail connected"}</strong>
-          <p>{user ? "Live billing inbox monitor is active." : "Connect Gmail to begin scanning."}</p>
-          <button className="coming-action" disabled title="Multiple accounts are coming soon">
-            <Plus size={17} />
-            <span>Add account</span>
-            <small>Soon</small>
-          </button>
-          <button className="coming-action" disabled title="Account switching is coming soon">
-            <Mail size={17} />
-            <span>Switch account</span>
-            <small>Soon</small>
-          </button>
+        <div className="account-drawer account-switcher-card">
+          <AccountSwitcher
+            accounts={accounts}
+            activeAccountId={activeAccountId}
+            onAddAccount={() => connectGmail("add")}
+            onSwitchAccount={switchAccount}
+            plan={plan}
+            user={user}
+          />
           {user && (
             <button className="secondary-button" onClick={disconnectGoogle}>
               <LogOut size={17} />
@@ -867,7 +915,10 @@ function App() {
       <section className="workspace">
         <header className="workspace-header">
           <div>
-            <h1>Dashboard <span className="beta-pill large">Beta</span></h1>
+            <div className="title-line">
+              <h1>Dashboard <span className="beta-pill large">Beta</span></h1>
+              <PlanMiniBadge accounts={accounts} plan={plan} />
+            </div>
             <p>Verified payments, recurring risk, and upcoming renewals from your Gmail.</p>
             <span className="beta-subtitle">
               Beta: totals, categories, renewal dates, and savings signals are approximate while
@@ -945,6 +996,110 @@ function LiveMonitor({ connected, syncing }) {
       </div>
       <span className="live-state">{syncing ? "Scanning" : connected ? "Live" : "Offline"}</span>
     </section>
+  );
+}
+
+function AccountSwitcher({ accounts, activeAccountId, onAddAccount, onSwitchAccount, plan, user }) {
+  const accountList =
+    accounts.length > 0
+      ? accounts
+      : user
+        ? [{ ...user, isPrimary: true, isActive: true }]
+        : [];
+  const primaryAccount = accountList.find((account) => account.isPrimary) || accountList[0];
+  const connectedAccounts = accountList.filter((account) => !account.isPrimary);
+  const gmailLimit = plan?.gmailLimit || DEFAULT_PLAN.gmailLimit;
+  const maxAccountsReached = accountList.length >= gmailLimit;
+
+  return (
+    <div className="account-switcher">
+      <div className="switcher-head">
+        <span className="drawer-label">Primary Gmail</span>
+        <small>{accountList.length}/{gmailLimit} connected</small>
+      </div>
+
+      {primaryAccount ? (
+        <AccountRow
+          account={primaryAccount}
+          activeAccountId={activeAccountId}
+          label="Primary"
+          onSwitchAccount={onSwitchAccount}
+        />
+      ) : (
+        <div className="empty-account-row">No Gmail connected</div>
+      )}
+
+      <div className="connected-gmail-head">
+        <span>Connected Gmails</span>
+        <small>Switch anytime</small>
+      </div>
+
+      <div className="account-list">
+        {connectedAccounts.length === 0 ? (
+          <p className="mini-muted">Add another Gmail to compare inboxes separately.</p>
+        ) : (
+          connectedAccounts.map((account) => (
+            <AccountRow
+              account={account}
+              activeAccountId={activeAccountId}
+              key={account.id}
+              onSwitchAccount={onSwitchAccount}
+            />
+          ))
+        )}
+      </div>
+
+      <button
+        className="account-add-button"
+        disabled={maxAccountsReached}
+        onClick={onAddAccount}
+        title={
+          maxAccountsReached
+            ? `${plan?.name || "Free"} allows ${gmailLimit} Gmail account${gmailLimit === 1 ? "" : "s"}`
+            : "Add Gmail account"
+        }
+        type="button"
+      >
+        <Plus size={17} />
+        <span>{maxAccountsReached ? `${plan?.name || "Free"} limit reached` : "Add Gmail"}</span>
+      </button>
+    </div>
+  );
+}
+
+function AccountRow({ account, activeAccountId, label, onSwitchAccount }) {
+  const isActive = String(account.id) === String(activeAccountId);
+  const initial = (account.name || account.email || "G").trim().charAt(0).toUpperCase();
+
+  return (
+    <button
+      className={`account-row ${isActive ? "active" : ""}`}
+      onClick={() => onSwitchAccount(account.id)}
+      type="button"
+    >
+      <span className="account-avatar">{initial}</span>
+      <span className="account-copy">
+        <strong title={account.email}>{account.email}</strong>
+        <small>{label || (account.gmailConnected ? "Gmail connected" : "Needs reconnect")}</small>
+      </span>
+      <span className={`account-state ${isActive ? "active" : ""}`} aria-hidden="true" />
+    </button>
+  );
+}
+
+function PlanMiniBadge({ accounts, plan }) {
+  const currentPlan = plan || DEFAULT_PLAN;
+  const usedAccounts = accounts.length || 0;
+  const limit = currentPlan.gmailLimit || DEFAULT_PLAN.gmailLimit;
+
+  return (
+    <div className="plan-mini-badge">
+      <span>{currentPlan.name}</span>
+      <small>{usedAccounts}/{limit} Gmail</small>
+      <button onClick={() => { window.location.href = "/pricing"; }} type="button">
+        Upgrade
+      </button>
+    </div>
   );
 }
 

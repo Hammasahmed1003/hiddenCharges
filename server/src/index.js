@@ -10,6 +10,7 @@ import { Server } from "socket.io";
 import { config } from "./config.js";
 import { initializeDatabase } from "./db.js";
 import authRouter from "./routes/auth.js";
+import billingRouter from "./routes/billing.js";
 import subscriptionRouter from "./routes/subscriptions.js";
 import { latestUsdRates } from "./services/exchangeRates.js";
 import { processGmailPushNotification, registerLiveScanSocket } from "./services/liveScan.js";
@@ -47,7 +48,14 @@ async function startServer() {
       credentials: true
     })
   );
-  app.use(express.json({ limit: "1mb" }));
+  app.use(
+    express.json({
+      limit: "1mb",
+      verify: (request, _response, buffer) => {
+        request.rawBody = buffer;
+      }
+    })
+  );
   const sessionMiddleware = session({
     name: "hiddencharges.sid",
     secret: config.sessionSecret,
@@ -77,6 +85,7 @@ async function startServer() {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/billing", billingRouter);
   app.use("/api/subscriptions", subscriptionRouter);
 
   const server = createServer(app);

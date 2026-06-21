@@ -43,6 +43,12 @@ export async function initializeDatabase() {
       gmail_tokens LONGTEXT NULL,
       last_gmail_scan_at DATETIME NULL,
       gmail_history_id VARCHAR(64) NULL,
+      plan ENUM('free', 'pro', 'max') NOT NULL DEFAULT 'free',
+      plan_status VARCHAR(64) NOT NULL DEFAULT 'free',
+      lemon_customer_id VARCHAR(128) NULL,
+      lemon_subscription_id VARCHAR(128) NULL,
+      lemon_variant_id VARCHAR(128) NULL,
+      current_period_ends_at DATETIME NULL,
       created_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
       updated_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
       PRIMARY KEY (id),
@@ -52,6 +58,39 @@ export async function initializeDatabase() {
 
   await addColumnIfMissing("users", "last_gmail_scan_at", "DATETIME NULL");
   await addColumnIfMissing("users", "gmail_history_id", "VARCHAR(64) NULL");
+  await addColumnIfMissing("users", "plan", "ENUM('free', 'pro', 'max') NOT NULL DEFAULT 'free'");
+  await addColumnIfMissing("users", "plan_status", "VARCHAR(64) NOT NULL DEFAULT 'free'");
+  await addColumnIfMissing("users", "lemon_customer_id", "VARCHAR(128) NULL");
+  await addColumnIfMissing("users", "lemon_subscription_id", "VARCHAR(128) NULL");
+  await addColumnIfMissing("users", "lemon_variant_id", "VARCHAR(128) NULL");
+  await addColumnIfMissing("users", "current_period_ends_at", "DATETIME NULL");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS account_memberships (
+      owner_user_id BIGINT UNSIGNED NOT NULL,
+      member_user_id BIGINT UNSIGNED NOT NULL,
+      role ENUM('owner', 'member') NOT NULL DEFAULT 'member',
+      is_primary TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
+      updated_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:01',
+      PRIMARY KEY (owner_user_id, member_user_id),
+      UNIQUE KEY account_memberships_member_unique (member_user_id),
+      KEY account_memberships_owner_index (owner_user_id),
+      CONSTRAINT account_memberships_owner_foreign
+        FOREIGN KEY (owner_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT account_memberships_member_foreign
+        FOREIGN KEY (member_user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
+    INSERT IGNORE INTO account_memberships
+      (owner_user_id, member_user_id, role, is_primary, created_at, updated_at)
+    SELECT id, id, 'owner', 1, NOW(), NOW()
+    FROM users
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS subscriptions (
