@@ -53,6 +53,29 @@ export async function listSubscriptionsByUser(userId) {
   return rows.map(mapSubscription);
 }
 
+export async function listReportSubscriptions({ userIds, startDate, endDate }) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return [];
+
+  const placeholders = userIds.map(() => "?").join(", ");
+  const [rows] = await pool.execute(
+    `SELECT subscriptions.*, users.email AS account_email, users.name AS account_name
+     FROM subscriptions
+     JOIN users ON users.id = subscriptions.user_id
+     WHERE subscriptions.user_id IN (${placeholders})
+       AND subscriptions.status = 'verified'
+       AND subscriptions.last_charged_at >= ?
+       AND subscriptions.last_charged_at <= ?
+     ORDER BY subscriptions.last_charged_at ASC, subscriptions.id ASC`,
+    [...userIds, toMysqlDate(startDate), toMysqlDate(endDate)]
+  );
+
+  return rows.map((row) => ({
+    ...mapSubscription(row),
+    accountEmail: row.account_email,
+    accountName: row.account_name
+  }));
+}
+
 export async function upsertSubscription(userId, item) {
   if (item.status !== "verified") return null;
 

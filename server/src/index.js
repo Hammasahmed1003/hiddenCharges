@@ -11,6 +11,7 @@ import { config } from "./config.js";
 import { initializeDatabase } from "./db.js";
 import authRouter from "./routes/auth.js";
 import billingRouter from "./routes/billing.js";
+import reportsRouter from "./routes/reports.js";
 import subscriptionRouter from "./routes/subscriptions.js";
 import { latestUsdRates } from "./services/exchangeRates.js";
 import { processGmailPushNotification, registerLiveScanSocket } from "./services/liveScan.js";
@@ -45,7 +46,8 @@ async function startServer() {
   app.use(
     cors({
       origin: config.clientUrl,
-      credentials: true
+      credentials: true,
+      exposedHeaders: ["Content-Disposition"]
     })
   );
   app.use(
@@ -86,6 +88,7 @@ async function startServer() {
 
   app.use("/api/auth", authRouter);
   app.use("/api/billing", billingRouter);
+  app.use("/api/reports", reportsRouter);
   app.use("/api/subscriptions", subscriptionRouter);
 
   const server = createServer(app);

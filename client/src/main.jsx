@@ -7,6 +7,8 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  Download,
+  ExternalLink,
   FileText,
   Filter,
   Inbox,
@@ -38,7 +40,7 @@ const CURRENCY_OPTIONS = [
 const FEATURE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "savings", label: "Savings Opportunities" },
-  { id: "report", label: "Monthly Report" },
+  { id: "report", label: "Reports" },
   { id: "timeline", label: "Subscription Timeline" }
 ];
 const PRICING_PLANS = [
@@ -969,7 +971,12 @@ function App() {
             />
           )}
           {activeFeature === "report" && (
-            <MonthlyReportView report={stats.monthlyReport} />
+            <MonthlyReportView
+              accounts={accounts}
+              activeAccountId={activeAccountId}
+              plan={plan}
+              report={stats.monthlyReport}
+            />
           )}
           {activeFeature === "timeline" && (
             <SubscriptionTimelineView groups={stats.timelineGroups} currency={selectedCurrency} />
@@ -1399,7 +1406,7 @@ function OpportunityRow({ item }) {
   );
 }
 
-function MonthlyReportView({ report }) {
+function MonthlyReportView({ accounts, activeAccountId, plan, report }) {
   const change =
     report.previousTotal && report.total !== null
       ? ((report.total - report.previousTotal) / report.previousTotal) * 100
@@ -1409,11 +1416,11 @@ function MonthlyReportView({ report }) {
     <section className="monthly-report">
       <div className="feature-intro">
         <div>
-          <span className="eyebrow">Monthly report</span>
+          <span className="eyebrow">Current month spending</span>
           <h2>{report.label}</h2>
           <p>
-            A clean monthly summary of verified billing activity. This version stays inside the
-            dashboard; email delivery and PDF export can become paid add-ons later.
+            Your in-dashboard view of verified spending for the current month, including payment
+            activity, category totals, and the merchants receiving the most money.
           </p>
         </div>
         <div className="report-total">
@@ -1435,6 +1442,15 @@ function MonthlyReportView({ report }) {
           label="Top category"
           value={report.topCategory ? report.topCategory.category : "None"}
         />
+        <Metric
+          icon={CalendarDays}
+          label="Previous month"
+          value={
+            report.previousTotal === null
+              ? "No data"
+              : formatMoney(report.previousTotal, report.currency)
+          }
+        />
       </div>
 
       <div className="report-columns">
@@ -1454,6 +1470,141 @@ function MonthlyReportView({ report }) {
             amount: formatMoney(item.amount, report.currency)
           }))}
         />
+      </div>
+
+      <ReportGenerator
+        accounts={accounts}
+        activeAccountId={activeAccountId}
+        plan={plan}
+      />
+    </section>
+  );
+}
+
+function ReportGenerator({ accounts, activeAccountId, plan }) {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [period, setPeriod] = useState("month");
+  const [month, setMonth] = useState(currentMonth);
+  const [scope, setScope] = useState(String(activeAccountId || ""));
+  const [generating, setGenerating] = useState("");
+  const [reportError, setReportError] = useState("");
+  const canCombineAccounts = plan?.id === "pro" || plan?.id === "max";
+
+  useEffect(() => {
+    if (!scope && activeAccountId) setScope(String(activeAccountId));
+    if (scope !== "all" && accounts.length && !accounts.some((account) => String(account.id) === scope)) {
+      setScope(String(activeAccountId || accounts[0].id));
+    }
+  }, [accounts, activeAccountId, scope]);
+
+  async function generateReport(mode) {
+    setGenerating(mode);
+    setReportError("");
+    const previewWindow = mode === "inline" ? window.open("", "_blank") : null;
+    try {
+      const params = new URLSearchParams({
+        period,
+        mode,
+        scope: scope === "all" ? "all" : "account"
+      });
+      if (period === "month") params.set("month", month);
+      if (period === "year") params.set("year", String(now.getFullYear()));
+      if (scope !== "all") params.set("accountId", scope || String(activeAccountId));
+
+      const response = await fetch(`${API_URL}/api/reports/pdf?${params.toString()}`, {
+        credentials: "include"
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Unable to generate this report");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || "hiddencharges-report.pdf";
+
+      if (mode === "inline") {
+        if (previewWindow) previewWindow.location.href = url;
+        else window.open(url, "_blank");
+      } else {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      if (previewWindow) previewWindow.close();
+      setReportError(error.message);
+    } finally {
+      setGenerating("");
+    }
+  }
+
+  return (
+    <section className="report-generator">
+      <div className="report-generator-head">
+        <div>
+          <span className="eyebrow">Shareable PDF</span>
+          <h3>Generate a financial report</h3>
+          <p>
+            Export verified spending with clear dates, original currencies, category totals, and a
+            complete transaction history.
+          </p>
+        </div>
+        <FileText size={22} />
+      </div>
+
+      <div className="report-generator-controls">
+        <div className="report-control-group">
+          <span>Period</span>
+          <div className="report-period-tabs">
+            <button className={period === "month" ? "active" : ""} onClick={() => setPeriod("month")} type="button">
+              Monthly
+            </button>
+            <button className={period === "year" ? "active" : ""} onClick={() => setPeriod("year")} type="button">
+              {now.getFullYear()} so far
+            </button>
+          </div>
+        </div>
+
+        {period === "month" && (
+          <label className="report-control-group">
+            <span>Report month</span>
+            <input max={currentMonth} onChange={(event) => setMonth(event.target.value)} type="month" value={month} />
+          </label>
+        )}
+
+        <label className="report-control-group report-account-select">
+          <span>Gmail scope</span>
+          <select onChange={(event) => setScope(event.target.value)} value={scope}>
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.email}
+              </option>
+            ))}
+            {canCombineAccounts && accounts.length > 1 && <option value="all">All connected accounts</option>}
+          </select>
+        </label>
+      </div>
+
+      {!canCombineAccounts && accounts.length > 1 && (
+        <p className="report-plan-note">Combined Gmail reports are available on Pro and Max. Individual PDF reports remain free.</p>
+      )}
+      {reportError && <p className="report-error">{reportError}</p>}
+
+      <div className="report-generator-actions">
+        <button disabled={Boolean(generating)} onClick={() => generateReport("inline")} type="button">
+          {generating === "inline" ? <RefreshCw className="spin" size={17} /> : <ExternalLink size={17} />}
+          Preview PDF
+        </button>
+        <button className="primary" disabled={Boolean(generating)} onClick={() => generateReport("attachment")} type="button">
+          {generating === "attachment" ? <RefreshCw className="spin" size={17} /> : <Download size={17} />}
+          Download PDF
+        </button>
       </div>
     </section>
   );
