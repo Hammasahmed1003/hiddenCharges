@@ -8,7 +8,15 @@ function mysqlConnectionOptions(includeDatabase = true) {
       : { host: config.mysql.host, port: config.mysql.port }),
     user: config.mysql.user,
     password: config.mysql.password,
-    ...(includeDatabase ? { database: config.mysql.database } : {})
+    ...(includeDatabase ? { database: config.mysql.database } : {}),
+    ...(config.mysql.sslCa
+      ? {
+          ssl: {
+            ca: config.mysql.sslCa.replaceAll("\\n", "\n"),
+            rejectUnauthorized: config.mysql.sslRejectUnauthorized
+          }
+        }
+      : {})
   };
 }
 

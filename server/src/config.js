@@ -12,7 +12,9 @@ export const config = {
     user: process.env.MYSQL_USER || "root",
     password: process.env.MYSQL_PASSWORD || "",
     database: process.env.MYSQL_DATABASE || "hiddencharges",
-    socketPath: process.env.MYSQL_SOCKET || ""
+    socketPath: process.env.MYSQL_SOCKET || "",
+    sslCa: process.env.MYSQL_SSL_CA || "",
+    sslRejectUnauthorized: process.env.MYSQL_SSL_REJECT_UNAUTHORIZED !== "false"
   },
   sessionSecret: process.env.SESSION_SECRET || "dev-only-change-me",
   security: {

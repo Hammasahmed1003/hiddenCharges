@@ -36,6 +36,14 @@ async function startServer() {
     user: config.mysql.user,
     password: config.mysql.password,
     database: config.mysql.database,
+    ...(config.mysql.sslCa
+      ? {
+          ssl: {
+            ca: config.mysql.sslCa.replaceAll("\\n", "\n"),
+            rejectUnauthorized: config.mysql.sslRejectUnauthorized
+          }
+        }
+      : {}),
     createDatabaseTable: true,
     schema: {
       tableName: "sessions"
