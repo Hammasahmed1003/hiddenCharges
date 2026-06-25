@@ -112,6 +112,19 @@ function BrandLogo({ size = 34 }) {
   );
 }
 
+function GmailIcon() {
+  return (
+    <svg aria-hidden="true" height="16" viewBox="0 0 24 18" width="22">
+      <path d="M2.5 1.5h19v15h-19z" fill="#fff" />
+      <path d="M3.2 17h3.5V7.4L1.5 3.5v12c0 .8.7 1.5 1.7 1.5z" fill="#34a853" />
+      <path d="M17.3 17h3.5c.9 0 1.7-.7 1.7-1.5v-12l-5.2 3.9z" fill="#4285f4" />
+      <path d="M17.3 3.1V7.4l5.2-3.9v-.8c0-1.7-2.1-2.6-3.4-1.6z" fill="#fbbc04" />
+      <path d="M6.7 7.4V3.1L12 7.1l5.3-4v4.3L12 11.4z" fill="#ea4335" />
+      <path d="M1.5 2.7v.8l5.2 3.9V3.1L4.9 1.1C3.6.1 1.5 1 1.5 2.7z" fill="#c5221f" />
+    </svg>
+  );
+}
+
 function mergeSubscription(list, subscription) {
   if (!subscription) return list;
   const key = subscription._id || subscription.fingerprint;
@@ -854,7 +867,7 @@ function App() {
     );
   }
 
-  if (!user && !usingDemo) {
+  if (!user) {
     return <ConnectLanding connectGmail={connectGmail} />;
   }
 
@@ -1885,8 +1898,10 @@ function ConnectLanding({ connectGmail }) {
           <a href="/terms">
             Terms
           </a>
-          <button className="secondary-button" onClick={connectGmail}>
-            <Mail size={17} />
+          <button className="secondary-button landing-nav-cta" onClick={connectGmail}>
+            <span className="gmail-mark" aria-hidden="true">
+              <GmailIcon />
+            </span>
             Connect Gmail
           </button>
         </div>
@@ -1894,76 +1909,142 @@ function ConnectLanding({ connectGmail }) {
 
       <section className="connect-hero">
         <div className="connect-copy">
-          <span className="eyebrow">Subscription spend intelligence</span>
-          <h1>Find the charges hiding inside your inbox.</h1>
+          <span className="eyebrow">Gmail billing intelligence</span>
+          <h1>
+            Know where your recurring money goes
+            <span className="headline-logo" aria-hidden="true">
+              <BrandLogo size={68} />
+            </span>
+          </h1>
           <p>
-            HiddenCharges reads verified billing emails and turns them into a private dashboard for
-            subscriptions, renewals, failed payments, and yearly spend.
-          </p>
-          <div className="beta-copy">
-            Beta product: financial data shown here is approximate while we improve extraction and
-            categorization.
-          </div>
-          <p className="trust-line">
-            <ShieldCheck size={16} />
-            Read-only Gmail access. HiddenCharges extracts billing signals only and never sends,
-            edits, or deletes emails.
+            HiddenCharges turns Gmail receipts into a clean view of verified payments, renewal
+            dates, failed charges, monthly reports, and the subscriptions costing you the most.
           </p>
           <button className="google-button gmail-button" onClick={connectGmail}>
             <span className="gmail-mark" aria-hidden="true">
-              <Mail size={18} />
+              <GmailIcon />
             </span>
             Continue with Gmail
           </button>
+          <div className="landing-microcopy">
+            <span><ShieldCheck size={15} /> Read-only Gmail access</span>
+            <span>Beta data is approximate</span>
+          </div>
         </div>
 
         <div className="hero-visual" aria-hidden="true">
-          <div className="scan-orbit">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="connect-preview">
-            <div className="preview-row">
-              <span>Verified spend</span>
-              <strong>US$58.24</strong>
+          <div className="landing-device">
+            <div className="device-bar">
+              <span />
+              <span />
+              <span />
             </div>
-            <div className="preview-row">
-              <span>Highest drain</span>
-              <strong>Google Play</strong>
+            <div className="device-topline">
+              <span>June spend</span>
+              <strong>US$311.98</strong>
             </div>
-            <div className="preview-row muted">
-              <span>Live notifications</span>
-              <strong>Ready</strong>
+            <div className="device-chart">
+              <svg viewBox="0 0 320 150" role="img" aria-label="Spending trend">
+                <defs>
+                  <linearGradient id="landingLineGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+                    <stop offset="0%" stopColor="#b7ff5a" />
+                    <stop offset="100%" stopColor="#202123" />
+                  </linearGradient>
+                  <linearGradient id="landingAreaGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+                    <stop offset="0%" stopColor="#b7ff5a" stopOpacity="0.34" />
+                    <stop offset="100%" stopColor="#b7ff5a" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path
+                  className="device-chart-area"
+                  d="M14 112 C44 96 58 60 88 72 C116 84 126 116 158 90 C190 64 196 28 228 48 C260 68 272 94 306 40 L306 138 L14 138 Z"
+                />
+                <path
+                  className="device-chart-line"
+                  d="M14 112 C44 96 58 60 88 72 C116 84 126 116 158 90 C190 64 196 28 228 48 C260 68 272 94 306 40"
+                />
+                <circle cx="88" cy="72" r="5" />
+                <circle cx="228" cy="48" r="5" />
+                <circle cx="306" cy="40" r="6" />
+              </svg>
+            </div>
+            <div className="device-list">
+              <span><b /> OpenAI <strong>US$20</strong></span>
+              <span><b /> Google One <strong>Rs 650</strong></span>
+              <span><b /> Render <strong>US$7</strong></span>
             </div>
           </div>
-          <div className="mini-email-card one">
-            <Mail size={16} />
-            <span>Receipt found</span>
+          <div className="landing-flow-card receipt">
+            <Mail size={15} />
+            Receipt detected
           </div>
-          <div className="mini-email-card two">
-            <Sparkles size={16} />
-            <span>Charge verified</span>
+          <div className="landing-flow-card verified">
+            <CheckCircle2 size={15} />
+            Charge verified
           </div>
         </div>
       </section>
 
-      <section className="benefit-strip">
-        <article>
-          <WalletCards size={18} />
-          <strong>Total spend clarity</strong>
-          <span>See verified spending since 2026 across PKR, USD, and other currencies.</span>
-        </article>
-        <article>
-          <CalendarDays size={18} />
-          <strong>Renewal awareness</strong>
-          <span>Surface future billing dates when receipts reveal recurring cycles.</span>
-        </article>
-        <article>
-          <Tag size={18} />
-          <strong>Cancellation signals</strong>
-          <span>Identify the services draining the most money before they keep compounding.</span>
-        </article>
+      <section className="landing-section landing-how">
+        <div>
+          <span className="eyebrow">What it does</span>
+          <h2>From inbox noise to payment clarity.</h2>
+        </div>
+        <div className="landing-steps">
+          <article>
+            <span>01</span>
+            <strong>Connect Gmail</strong>
+            <p>Use read-only access so HiddenCharges can inspect billing emails without changing your inbox.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <strong>Verify charges</strong>
+            <p>Payment emails are filtered and checked before they appear in your spending dashboard.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <strong>Act with context</strong>
+            <p>See category spend, largest drains, renewal dates, and downloadable reports in one place.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-section landing-secure">
+        <div className="secure-copy">
+          <span className="eyebrow">Security and payments</span>
+          <h2>Built for financial visibility, not inbox control.</h2>
+          <p>
+            HiddenCharges uses read-only Google OAuth scopes, encrypted connections, encrypted OAuth
+            tokens, and stores only verified billing records needed for your dashboard.
+          </p>
+        </div>
+        <div className="secure-grid">
+          <article>
+            <ShieldCheck size={19} />
+            <strong>Read-only Gmail</strong>
+            <span>No sending, deleting, editing, or replying to emails.</span>
+          </article>
+          <article>
+            <CreditCard size={19} />
+            <strong>Lemon Squeezy checkout</strong>
+            <span>Paid plans are handled through Lemon Squeezy, a Stripe company.</span>
+          </article>
+          <article>
+            <FileText size={19} />
+            <strong>Reports you can share</strong>
+            <span>Download clean monthly or yearly payment reports when you need them.</span>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-final">
+        <span>HiddenCharges is in Beta, so totals and categories should be reviewed before decisions.</span>
+        <button className="google-button gmail-button" onClick={connectGmail}>
+          <span className="gmail-mark" aria-hidden="true">
+            <GmailIcon />
+          </span>
+          Start with Gmail
+        </button>
       </section>
     </main>
   );
