@@ -189,6 +189,13 @@ function formatMoney(amount, currency = "PKR") {
   }
 }
 
+function livePaymentText(subscription, fallback = "New verified payment notification detected.") {
+  if (!subscription) return fallback;
+  const amount = formatMoney(subscription.amount, subscription.currency);
+  const merchant = subscription.merchantName || "Payment";
+  return `${merchant} ${amount} was detected and verified.`;
+}
+
 function daysUntil(dateValue) {
   const today = new Date();
   const target = new Date(dateValue);
@@ -540,8 +547,64 @@ function App() {
   const [selectedCurrency, setSelectedCurrency] = useState("PKR");
   const [activeFeature, setActiveFeature] = useState("overview");
   const [socketConnected, setSocketConnected] = useState(false);
+  const [liveToasts, setLiveToasts] = useState([]);
+  const [notificationPermission, setNotificationPermission] = useState(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+    return window.Notification.permission;
+  });
   const socketRef = useRef(null);
   const path = window.location.pathname;
+
+  function pushLiveToast({ title = "New payment found", message, subscription }) {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setLiveToasts((current) => [
+      ...current.slice(-2),
+      { id, title, message, subscription, createdAt: Date.now() }
+    ]);
+    window.setTimeout(() => {
+      setLiveToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 8000);
+  }
+
+  function dismissToast(id) {
+    setLiveToasts((current) => current.filter((toast) => toast.id !== id));
+  }
+
+  async function enableBrowserNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const permission = await window.Notification.requestPermission();
+    setNotificationPermission(permission);
+    if (permission === "granted") {
+      pushLiveToast({
+        title: "Browser alerts enabled",
+        message: "You will get a browser notification when a new verified payment appears."
+      });
+    }
+  }
+
+  function showBrowserNotification({ title, message }) {
+    if (
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      window.Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    try {
+      new window.Notification(title, {
+        body: message,
+        icon: "/hidden-logo-mark.png",
+        badge: "/hidden-logo-mark.png",
+        tag: "hiddencharges-live-payment"
+      });
+    } catch {
+      // Browser notifications are best-effort and should never interrupt live updates.
+    }
+  }
 
   async function loadMe() {
     try {
@@ -670,8 +733,18 @@ function App() {
       setUsingDemo(false);
     });
 
-    socket.on("live:payment", ({ message }) => {
+    socket.on("live:payment", ({ message, subscription }) => {
+      const toastMessage = livePaymentText(subscription, message);
       setAuthNotice(message || "New verified payment notification detected.");
+      pushLiveToast({
+        title: "New verified payment",
+        message: toastMessage,
+        subscription
+      });
+      showBrowserNotification({
+        title: "HiddenCharges found a payment",
+        message: toastMessage
+      });
     });
 
     socket.on("subscriptions:replace", ({ subscriptions: nextSubscriptions }) => {
@@ -952,7 +1025,12 @@ function App() {
           </section>
         )}
 
-        <LiveMonitor connected={socketConnected} syncing={syncing} />
+        <LiveMonitor
+          connected={socketConnected}
+          notificationPermission={notificationPermission}
+          onEnableNotifications={enableBrowserNotifications}
+          syncing={syncing}
+        />
 
         <FeatureSwitcher activeFeature={activeFeature} onChange={setActiveFeature} />
 
@@ -996,11 +1074,16 @@ function App() {
           )}
         </section>
       </section>
+
+      <LiveToastStack toasts={liveToasts} onDismiss={dismissToast} />
     </main>
   );
 }
 
-function LiveMonitor({ connected, syncing }) {
+function LiveMonitor({ connected, notificationPermission, onEnableNotifications, syncing }) {
+  const canEnableNotifications = notificationPermission === "default";
+  const notificationsGranted = notificationPermission === "granted";
+
   return (
     <section className={`live-monitor ${connected ? "online" : "offline"}`}>
       <div className="live-monitor-main">
@@ -1014,8 +1097,47 @@ function LiveMonitor({ connected, syncing }) {
           </p>
         </div>
       </div>
-      <span className="live-state">{syncing ? "Scanning" : connected ? "Live" : "Offline"}</span>
+      <div className="live-monitor-actions">
+        {canEnableNotifications && (
+          <button className="notification-button" onClick={onEnableNotifications} type="button">
+            Enable browser alerts
+          </button>
+        )}
+        {notificationsGranted && <span className="notification-status">Browser alerts on</span>}
+        <span className="live-state">{syncing ? "Scanning" : connected ? "Live" : "Offline"}</span>
+      </div>
     </section>
+  );
+}
+
+function LiveToastStack({ toasts, onDismiss }) {
+  if (!toasts.length) return null;
+
+  return (
+    <div className="live-toast-stack" aria-live="polite" aria-relevant="additions">
+      {toasts.map((toast) => (
+        <article className="live-toast" key={toast.id}>
+          <div className="live-toast-icon">
+            <WalletCards size={18} />
+          </div>
+          <div>
+            <strong>{toast.title}</strong>
+            <p>{toast.message}</p>
+            {toast.subscription?.sourceEmail?.sender && (
+              <span>{toast.subscription.sourceEmail.sender}</span>
+            )}
+          </div>
+          <button
+            aria-label="Dismiss notification"
+            className="toast-dismiss"
+            onClick={() => onDismiss(toast.id)}
+            type="button"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </article>
+      ))}
+    </div>
   );
 }
 
