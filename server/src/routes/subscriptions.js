@@ -1,12 +1,14 @@
 import express from "express";
-import { findUserById, updateUserGmailSyncState } from "../repositories/users.js";
+import { findOwnerIdForMember, findUserById, updateUserGmailSyncState } from "../repositories/users.js";
 import {
   listSubscriptionsByUser,
   upsertSubscription,
+  updateSubscriptionMemoryNote,
   verifySubscription
 } from "../repositories/subscriptions.js";
 import { extractSubscriptionsFromGmail } from "../services/gmail.js";
 import { emitScanEvent, subscribeToScanEvents } from "../services/scanEvents.js";
+import { publicPlan } from "../services/plans.js";
 
 const router = express.Router();
 
@@ -15,6 +17,30 @@ function requireUser(request, response, next) {
     return response.status(401).json({ message: "Connect Gmail before syncing subscriptions" });
   }
   next();
+}
+
+async function requirePaidPlan(request, response, next) {
+  try {
+    const activeUserId = request.session.userId;
+    const ownerUserId =
+      request.session.ownerUserId || (await findOwnerIdForMember(activeUserId)) || activeUserId;
+    const owner = await findUserById(ownerUserId);
+    const plan = publicPlan({
+      plan: owner?.plan,
+      status: owner?.planStatus,
+      currentPeriodEndsAt: owner?.currentPeriodEndsAt
+    });
+
+    if (plan.id === "free") {
+      return response.status(403).json({
+        message: "Spend Memory is available on Pro and Max."
+      });
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 router.get("/", async (request, response, next) => {
@@ -69,6 +95,29 @@ router.get("/events", requireUser, (request, response) => {
 router.patch("/:id/verify", requireUser, async (request, response, next) => {
   try {
     const subscription = await verifySubscription(request.session.userId, request.params.id);
+
+    response.json({ subscription });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/:id/memory-note", requireUser, requirePaidPlan, async (request, response, next) => {
+  try {
+    const note = String(request.body?.note || "").trim();
+    if (note.length > 500) {
+      return response.status(400).json({ message: "Memory note must be 500 characters or less." });
+    }
+
+    const subscription = await updateSubscriptionMemoryNote(
+      request.session.userId,
+      request.params.id,
+      note
+    );
+
+    if (!subscription) {
+      return response.status(404).json({ message: "Payment record was not found." });
+    }
 
     response.json({ subscription });
   } catch (error) {

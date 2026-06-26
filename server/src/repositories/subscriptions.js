@@ -32,6 +32,7 @@ function mapSubscription(row) {
     confidence: Number(row.confidence),
     status: row.status,
     paymentState: row.payment_state || "paid",
+    memoryNote: row.memory_note || "",
     evidence: parseJson(row.evidence, []),
     sourceEmail: parseJson(row.source_email, {}),
     fingerprint: row.fingerprint,
@@ -139,6 +140,25 @@ export async function verifySubscription(userId, id) {
      SET status = 'verified', confidence = 1
      WHERE id = :id AND user_id = :userId`,
     { id, userId }
+  );
+
+  const [rows] = await pool.execute(
+    "SELECT * FROM subscriptions WHERE id = :id AND user_id = :userId LIMIT 1",
+    { id, userId }
+  );
+
+  return rows[0] ? mapSubscription(rows[0]) : null;
+}
+
+export async function updateSubscriptionMemoryNote(userId, id, note) {
+  await pool.execute(
+    `UPDATE subscriptions
+     SET memory_note = :note,
+         updated_at = NOW()
+     WHERE id = :id
+       AND user_id = :userId
+       AND status = 'verified'`,
+    { id, userId, note: note || null }
   );
 
   const [rows] = await pool.execute(

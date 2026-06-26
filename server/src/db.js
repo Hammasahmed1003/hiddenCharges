@@ -114,6 +114,7 @@ export async function initializeDatabase() {
       confidence DECIMAL(4,3) NOT NULL DEFAULT 0,
       status ENUM('verified', 'needs_review', 'rejected') NOT NULL DEFAULT 'needs_review',
       payment_state ENUM('paid', 'failed') NOT NULL DEFAULT 'paid',
+      memory_note TEXT NULL,
       evidence LONGTEXT NULL,
       source_email LONGTEXT NULL,
       fingerprint CHAR(64) NOT NULL,
@@ -133,6 +134,7 @@ export async function initializeDatabase() {
     "payment_state",
     "ENUM('paid', 'failed') NOT NULL DEFAULT 'paid'"
   );
+  await addColumnIfMissing("subscriptions", "memory_note", "TEXT NULL");
 
   await pool.query(`
     UPDATE users

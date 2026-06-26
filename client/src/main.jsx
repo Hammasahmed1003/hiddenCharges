@@ -41,7 +41,8 @@ const FEATURE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "savings", label: "Savings Opportunities" },
   { id: "report", label: "Reports" },
-  { id: "timeline", label: "Subscription Timeline" }
+  { id: "timeline", label: "Subscription Timeline" },
+  { id: "memory", label: "Spend Memory" }
 ];
 const PRICING_PLANS = [
   {
@@ -837,6 +838,24 @@ function App() {
     }
   }
 
+  async function saveMemoryNote(subscriptionId, note) {
+    const response = await fetch(`${API_URL}/api/subscriptions/${subscriptionId}/memory-note`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ note })
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || "Unable to save this memory note");
+    }
+    const data = await response.json();
+    setSubscriptions((current) =>
+      current.map((item) => (String(item._id) === String(subscriptionId) ? data.subscription : item))
+    );
+    return data.subscription;
+  }
+
   async function disconnectGoogle() {
     try {
       await fetch(`${API_URL}/api/auth/disconnect`, {
@@ -1071,6 +1090,13 @@ function App() {
           )}
           {activeFeature === "timeline" && (
             <SubscriptionTimelineView groups={stats.timelineGroups} currency={selectedCurrency} />
+          )}
+          {activeFeature === "memory" && (
+            <SpendMemoryView
+              onSaveNote={saveMemoryNote}
+              plan={plan}
+              subscriptions={subscriptions}
+            />
           )}
         </section>
       </section>
@@ -1813,6 +1839,216 @@ function SubscriptionTimelineView({ groups, currency }) {
           {selected && <TimelineDetail group={selected} currency={currency} />}
         </div>
       )}
+    </section>
+  );
+}
+
+function SpendMemoryView({ onSaveNote, plan, subscriptions }) {
+  const now = new Date();
+  const currentMonth = monthKey(now);
+  const isPaid = plan?.id === "pro" || plan?.id === "max";
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [memoryQuery, setMemoryQuery] = useState("");
+  const [editingId, setEditingId] = useState("");
+  const [draftNote, setDraftNote] = useState("");
+  const [savingId, setSavingId] = useState("");
+  const [memoryError, setMemoryError] = useState("");
+
+  const paidItems = useMemo(
+    () =>
+      subscriptions
+        .filter(
+          (item) =>
+            item.status === "verified" &&
+            item.paymentState !== "failed" &&
+            item.lastChargedAt &&
+            monthKey(item.lastChargedAt) === selectedMonth
+        )
+        .filter((item) => {
+          const haystack = `${item.merchantName} ${item.category} ${item.memoryNote || ""} ${item.sourceEmail?.sender || ""}`.toLowerCase();
+          return haystack.includes(memoryQuery.toLowerCase());
+        })
+        .sort((a, b) => new Date(b.lastChargedAt) - new Date(a.lastChargedAt)),
+    [memoryQuery, selectedMonth, subscriptions]
+  );
+
+  const rememberedCount = paidItems.filter((item) => item.memoryNote).length;
+
+  function startEditing(item) {
+    setEditingId(item._id);
+    setDraftNote(item.memoryNote || "");
+    setMemoryError("");
+  }
+
+  async function submitMemory(item) {
+    setSavingId(item._id);
+    setMemoryError("");
+    try {
+      await onSaveNote(item._id, draftNote);
+      setEditingId("");
+      setDraftNote("");
+    } catch (error) {
+      setMemoryError(error.message);
+    } finally {
+      setSavingId("");
+    }
+  }
+
+  if (!isPaid) {
+    return (
+      <section className="memory-shell">
+        <div className="feature-intro memory-locked">
+          <div>
+            <span className="eyebrow">Pro feature</span>
+            <h2>Remember why each payment happened.</h2>
+            <p>
+              Spend Memory lets Pro and Max users add a short private note to every verified
+              payment, so a charge like Namecheap or Render has context months later.
+            </p>
+          </div>
+          <div className="memory-lock-card">
+            <Sparkles size={22} />
+            <strong>Available on Pro and Max</strong>
+            <span>Free shows verified payments. Paid plans unlock memory notes.</span>
+            <button onClick={() => { window.location.href = "/pricing"; }} type="button">
+              View pricing
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="memory-shell">
+      <div className="feature-intro memory-hero">
+        <div>
+          <span className="eyebrow">Spend Memory</span>
+          <h2>Attach a reason to every charge.</h2>
+          <p>
+            Pick a month, open any verified payment, and write what it was actually for. Simple
+            notes, no accounting setup, no tags to manage.
+          </p>
+        </div>
+        <div className="memory-summary">
+          <span>This month view</span>
+          <strong>{rememberedCount}/{paidItems.length}</strong>
+          <small>payments have memory notes</small>
+        </div>
+      </div>
+
+      <div className="memory-toolbar">
+        <label className="memory-filter-control">
+          <span>Month</span>
+          <div className="memory-input-shell">
+            <CalendarDays size={17} />
+            <input
+              aria-label="Filter spend memories by month"
+              max={currentMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              type="month"
+              value={selectedMonth}
+            />
+          </div>
+        </label>
+        <label className="memory-filter-control">
+          <span>Find a payment memory</span>
+          <div className="memory-input-shell">
+            <Search size={17} />
+            <input
+              onChange={(event) => setMemoryQuery(event.target.value)}
+              placeholder="Search merchant, note, or category"
+              value={memoryQuery}
+            />
+          </div>
+        </label>
+      </div>
+
+      {memoryError && <p className="memory-error">{memoryError}</p>}
+
+      <div className="memory-list">
+        {paidItems.length === 0 ? (
+          <div className="empty-state compact">No verified paid payments found for this month.</div>
+        ) : (
+          paidItems.map((item) => {
+            const isEditing = editingId === item._id;
+            const hasNote = Boolean(item.memoryNote);
+            return (
+              <article className={`memory-item ${isEditing ? "editing" : ""}`} key={item._id}>
+                <div className="memory-payment">
+                  <div className="merchant-icon">
+                    <CreditCard size={18} />
+                  </div>
+                  <div>
+                    <strong>{item.merchantName}</strong>
+                    <span>
+                      {item.lastChargedAt
+                        ? new Date(item.lastChargedAt).toLocaleDateString("en-PK", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric"
+                          })
+                        : "Unknown date"}{" "}
+                      · {item.category}
+                    </span>
+                  </div>
+                  <div className="memory-amount">
+                    <strong>{formatMoney(item.amount, item.currency)}</strong>
+                    <span>{item.cadence}</span>
+                  </div>
+                </div>
+
+                {isEditing ? (
+                  <div className="memory-editor">
+                    <label>
+                      <span>What was this payment for?</span>
+                      <textarea
+                        autoFocus
+                        maxLength={500}
+                        onChange={(event) => setDraftNote(event.target.value)}
+                        placeholder="Example: Bought hidden-charges.com domain"
+                        value={draftNote}
+                      />
+                    </label>
+                    <div className="memory-editor-actions">
+                      <small>{draftNote.trim().length}/500</small>
+                      <button
+                        className="ghost"
+                        disabled={savingId === item._id}
+                        onClick={() => {
+                          setEditingId("");
+                          setDraftNote("");
+                        }}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={savingId === item._id}
+                        onClick={() => submitMemory(item)}
+                        type="button"
+                      >
+                        {savingId === item._id ? <RefreshCw className="spin" size={16} /> : <CheckCircle2 size={16} />}
+                        Save memory
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`memory-note ${hasNote ? "has-note" : ""}`}>
+                    <div>
+                      <span>{hasNote ? "Memory note" : "No memory note yet"}</span>
+                      <p>{hasNote ? item.memoryNote : "Add a short note so you remember why this payment happened."}</p>
+                    </div>
+                    <button onClick={() => startEditing(item)} type="button">
+                      {hasNote ? "Edit memory" : "Add memory"}
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })
+        )}
+      </div>
     </section>
   );
 }
